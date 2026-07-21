@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  ADMIN
+}
+
+enum AppointmentStatus {
+  OPEN // espacio libre, cualquiera puede agendarlo
+  SCHEDULED // agendado y confirmado
+  OFFERED // ofrecido a alguien de la fila, esperando respuesta
+  CANCELLED // cancelado (historico)
+  COMPLETED // ya se atendio
+}
+
+enum WaitlistStatus {
+  WAITING
+  OFFERED
+  ACCEPTED
+  EXPIRED
+  REJECTED
+  CANCELLED_BY_PATIENT
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          Role            @default(PATIENT)
+  createdAt     DateTime        @default(now())
+
+  appointments  Appointment[]
+  waitlistEntries WaitlistEntry[]
+}
+
+model Appointment {
+  id            String            @id @default(uuid())
+  patientId     String?
+  patient       User?             @relation(fields: [patientId], references: [id])
+  startsAt      DateTime
+  endsAt        DateTime
+  status        AppointmentStatus @default(OPEN)
+
+  // usados solo cuando status = OFFERED (oferta de fila virtual)
+  offerExpiresAt DateTime?
+  waitlistEntryId String?         @unique
+  waitlistEntry   WaitlistEntry?  @relation("OfferedTo", fields: [waitlistEntryId], references: [id])
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  cancelledAt   DateTime?
+
+  @@index([status, startsAt])
+}
+
+model WaitlistEntry {
+  id                    String          @id @default(uuid())
+  patientId             String
+  patient               User            @relation(fields: [patientId], references: [id])
+  status                WaitlistStatus  @default(WAITING)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  offeredAppointment    Appointment?    @relation("OfferedTo")
+
+  @@index([status, createdAt])
+}

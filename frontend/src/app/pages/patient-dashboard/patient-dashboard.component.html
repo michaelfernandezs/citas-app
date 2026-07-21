@@ -1,0 +1,76 @@
+<div class="page">
+  <header>
+    <div class="brand">
+      <span class="brand-mark">+</span>
+      <span class="brand-name">Consultorio</span>
+    </div>
+    <button class="ghost-btn" (click)="logout()">Cerrar sesión</button>
+  </header>
+
+  @if (actionError()) {
+    <p class="error">{{ actionError() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Cargando…</p>
+  } @else {
+    <!-- Oferta activa de la fila virtual: el momento más importante de la pantalla -->
+    @if (waitlistStatus().inQueue && waitlistStatus().status === 'OFFERED') {
+      <section class="section">
+        <h2 class="section-title">Se liberó un espacio para ti</h2>
+        <app-ticket
+          variant="rust"
+          eyebrow="Oferta de la fila · responde antes de que expire"
+          [value]="waitlistStatus().offer ? hourLabel(waitlistStatus().offer!.startsAt) : ''"
+          [meta]="waitlistStatus().offer ? dayLabel(waitlistStatus().offer!.startsAt) : ''"
+        >
+          <button class="primary-btn" (click)="respondOffer(waitlistStatus().entry!.id, true)">Aceptar</button>
+          <button class="ghost-btn" (click)="respondOffer(waitlistStatus().entry!.id, false)">Rechazar</button>
+        </app-ticket>
+      </section>
+    }
+
+    <!-- En espera: número de turno como ticket -->
+    @if (waitlistStatus().inQueue && waitlistStatus().status === 'WAITING') {
+      <section class="section">
+        <h2 class="section-title">Tu turno en la fila virtual</h2>
+        <app-ticket
+          variant="pine"
+          eyebrow="Posición en espera"
+          value="#{{ waitlistStatus().position }}"
+          meta="Te avisamos aquí en cuanto se libere un espacio."
+        >
+          <button class="ghost-btn" (click)="leaveWaitlist(waitlistStatus().entry!.id)">Salir de la fila</button>
+        </app-ticket>
+      </section>
+    }
+
+    <!-- Mis citas confirmadas -->
+    <section class="section">
+      <h2 class="section-title">Citas confirmadas</h2>
+      @if (myAppointments().length === 0 || !hasScheduled()) {
+        <p class="empty">No tienes citas agendadas todavía.</p>
+      }
+      <div class="ticket-grid">
+        @for (a of myAppointments(); track a.id) {
+          @if (a.status === 'SCHEDULED') {
+            <app-ticket eyebrow="Confirmada" [value]="hourLabel(a.startsAt)" [meta]="dayLabel(a.startsAt)">
+              <button class="ghost-btn" (click)="cancel(a.id)">Cancelar</button>
+            </app-ticket>
+          }
+        }
+      </div>
+    </section>
+
+    <!-- Calendario de espacios disponibles -->
+    <section class="section">
+      <h2 class="section-title">Espacios disponibles</h2>
+      @if (openSlots().length === 0 && !waitlistStatus().inQueue) {
+        <p class="empty">No hay espacios abiertos por ahora.</p>
+        <button class="primary-btn" (click)="joinWaitlist()">Unirme a la fila virtual</button>
+      } @else {
+        <app-week-calendar [slots]="openSlots()" (book)="book($event)"></app-week-calendar>
+      }
+    </section>
+  }
+</div>

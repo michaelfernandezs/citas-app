@@ -1,0 +1,17 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Builds
+dist/
+**/dist/
+.angular/
+**/.angular/
+
+# Variables de entorno (nunca subir esto a git)
+.env
+**/.env
+
+# Logs y temporales
+*.log
+.DS_Store

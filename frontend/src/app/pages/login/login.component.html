@@ -1,0 +1,48 @@
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="brand">
+      <span class="brand-mark">+</span>
+      <span class="brand-name">Consultorio</span>
+    </div>
+
+    <h1>{{ mode() === 'login' ? 'Inicia sesión' : 'Crea tu cuenta' }}</h1>
+    <p class="sub">
+      {{ mode() === 'login' ? 'Para agendar o ver tu turno en la fila.' : 'Para poder agendar tu próxima cita.' }}
+    </p>
+
+    <form (ngSubmit)="submit()">
+      @if (mode() === 'register') {
+        <label>
+          Nombre
+          <input type="text" name="name" [(ngModel)]="name" required />
+        </label>
+        <label>
+          Teléfono <span class="optional">— opcional</span>
+          <input type="tel" name="phone" [(ngModel)]="phone" />
+        </label>
+      }
+
+      <label>
+        Correo
+        <input type="email" name="email" [(ngModel)]="email" required />
+      </label>
+
+      <label>
+        Contraseña
+        <input type="password" name="password" [(ngModel)]="password" required minlength="8" />
+      </label>
+
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+
+      <button type="submit" class="primary-btn" [disabled]="loading()">
+        {{ loading() ? 'Cargando…' : mode() === 'login' ? 'Entrar' : 'Crear cuenta' }}
+      </button>
+    </form>
+
+    <button class="link-btn" type="button" (click)="toggleMode()">
+      {{ mode() === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión' }}
+    </button>
+  </div>
+</div>

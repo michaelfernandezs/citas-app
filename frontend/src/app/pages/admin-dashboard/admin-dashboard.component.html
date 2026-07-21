@@ -1,0 +1,107 @@
+<div class="page">
+  <header>
+    <div class="brand">
+      <span class="brand-mark">+</span>
+      <span class="brand-name">Panel del consultorio</span>
+    </div>
+    <button class="ghost-btn" (click)="logout()">Cerrar sesión</button>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value">{{ openCount() }}</span>
+      <span class="stat-label">Espacios abiertos</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value">{{ scheduledCount() }}</span>
+      <span class="stat-label">Citas confirmadas</span>
+    </div>
+  </div>
+
+  @if (actionError()) {
+    <p class="error">{{ actionError() }}</p>
+  }
+  @if (actionMessage()) {
+    <p class="success">{{ actionMessage() }}</p>
+  }
+
+  <section class="card">
+    <h2>Crear un espacio suelto</h2>
+    <div class="form-row">
+      <label>
+        Fecha
+        <input type="date" [(ngModel)]="singleDate" name="singleDate" />
+      </label>
+      <label>
+        Hora
+        <input type="time" [(ngModel)]="singleTime" name="singleTime" />
+      </label>
+      <label>
+        Duración (min)
+        <input type="number" [(ngModel)]="singleDuration" name="singleDuration" min="5" />
+      </label>
+    </div>
+    <button class="primary-btn" (click)="createSingleSlot()">Crear espacio</button>
+  </section>
+
+  <section class="card">
+    <h2>Crear espacios recurrentes</h2>
+    <div class="form-row">
+      <label>
+        Desde
+        <input type="date" [(ngModel)]="fromDate" name="fromDate" />
+      </label>
+      <label>
+        Hasta
+        <input type="date" [(ngModel)]="toDate" name="toDate" />
+      </label>
+    </div>
+    <div class="form-row">
+      <label>
+        Hora inicio
+        <input type="number" [(ngModel)]="startHour" name="startHour" min="0" max="23" />
+      </label>
+      <label>
+        Hora fin
+        <input type="number" [(ngModel)]="endHour" name="endHour" min="0" max="23" />
+      </label>
+      <label>
+        Duración (min)
+        <input type="number" [(ngModel)]="recurringDuration" name="recurringDuration" min="5" />
+      </label>
+    </div>
+    <label class="checkbox-label">
+      <input type="checkbox" [(ngModel)]="excludeWeekends" name="excludeWeekends" />
+      Excluir fines de semana
+    </label>
+    <button class="primary-btn" (click)="createRecurring()">Generar espacios</button>
+  </section>
+
+  <section class="card">
+    <h2>Todas las citas</h2>
+    @if (loading()) {
+      <p class="empty">Cargando…</p>
+    } @else if (appointments().length === 0) {
+      <p class="empty">No hay citas todavía.</p>
+    } @else {
+      <div class="list">
+        @for (a of appointments(); track a.id) {
+          <div class="row">
+            <div class="row-info">
+              <span class="row-time">{{ dayLabel(a.startsAt) }} · {{ hourLabel(a.startsAt) }}</span>
+              <span class="row-status" [class]="'status status--' + a.status.toLowerCase()">
+                {{ a.status }}
+                @if (a.patient) {
+                  — {{ a.patient.name }}
+                }
+              </span>
+            </div>
+            @if (a.status === 'SCHEDULED') {
+              <button class="ghost-btn" (click)="cancelAppointment(a.id)">Cancelar</button>
+            }
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>

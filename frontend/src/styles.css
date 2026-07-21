@@ -1,0 +1,72 @@
+/* ---------- Tokens ---------- */
+:root {
+  --ink: #17203a;
+  --ink-soft: #2b3555;
+  --paper: #eef0e9;
+  --paper-raised: #f8f9f5;
+  --pine: #2b5d4f;
+  --pine-dark: #1e433a;
+  --rust: #a6472b;
+  --rust-soft: #f1ded6;
+  --muted: #6b7268;
+  --line: #d6d9cf;
+
+  --font-display: 'IBM Plex Serif', Georgia, serif;
+  --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+  --radius: 4px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-body);
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--pine);
+  color: var(--paper-raised);
+}
+
+/* Foco visible para accesibilidad */
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

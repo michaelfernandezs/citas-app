@@ -1,0 +1,21 @@
+@if (groups.length === 0) {
+  <p class="empty">No hay espacios disponibles esta semana.</p>
+} @else {
+  <div class="week">
+    @for (day of groups; track day.dateLabel + day.dayNumber) {
+      <div class="day-col">
+        <div class="day-head" [class.day-head--today]="day.isToday">
+          <span class="day-name">{{ day.dateLabel }}</span>
+          <span class="day-number">{{ day.dayNumber }}</span>
+        </div>
+        <div class="slots">
+          @for (slot of day.slots; track slot.id) {
+            <button class="slot-chip" type="button" (click)="book.emit(slot.id)">
+              {{ formatHour(slot.startsAt) }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}
