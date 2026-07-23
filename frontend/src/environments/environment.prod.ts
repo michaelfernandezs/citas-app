@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://TU-BACKEND.up.railway.app',
+  apiUrl: 'https://citas-app-production-9b3a.up.railway.app/',
 };
