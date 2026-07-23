@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { JoinWaitlistDto } from './dto/waitlist.dto';
 
 const OFFER_WINDOW_HOURS = 3;
 
@@ -9,8 +10,8 @@ export class WaitlistService {
 
   constructor(private prisma: PrismaService) {}
 
-  /** El paciente se une a la fila. Falla si ya tiene una entrada activa. */
-  async join(patientId: string) {
+  /** El paciente se une a la fila, con o sin preferencia de día/horario. */
+  async join(patientId: string, dto: JoinWaitlistDto) {
     const active = await this.prisma.waitlistEntry.findFirst({
       where: { patientId, status: { in: ['WAITING', 'OFFERED'] } },
     });
@@ -18,8 +19,26 @@ export class WaitlistService {
       throw new BadRequestException('Ya tienes un lugar activo en la fila');
     }
 
+    const hasRange = dto.preferredStartTime || dto.preferredEndTime;
+    if (hasRange && (!dto.preferredStartTime || !dto.preferredEndTime)) {
+      throw new BadRequestException('Debes indicar hora de inicio y de fin juntas, o ninguna');
+    }
+
+    const preferredStartMinute = dto.preferredStartTime ? toMinutes(dto.preferredStartTime) : null;
+    const preferredEndMinute = dto.preferredEndTime ? toMinutes(dto.preferredEndTime) : null;
+
+    if (preferredStartMinute !== null && preferredEndMinute !== null && preferredStartMinute >= preferredEndMinute) {
+      throw new BadRequestException('La hora de inicio debe ser antes que la hora de fin');
+    }
+
     return this.prisma.waitlistEntry.create({
-      data: { patientId, status: 'WAITING' },
+      data: {
+        patientId,
+        status: 'WAITING',
+        preferredWeekday: dto.preferredWeekday ?? null,
+        preferredStartMinute,
+        preferredEndMinute,
+      },
     });
   }
 
@@ -57,8 +76,11 @@ export class WaitlistService {
   }
 
   /**
-   * Núcleo del sistema: busca al siguiente candidato FIFO en espera y le ofrece
-   * el espacio liberado. Si nadie espera, el appointment se queda OPEN.
+   * Núcleo del sistema: busca al siguiente candidato elegible y le ofrece el
+   * espacio liberado. Elegible = sin preferencia (acepta cualquier cosa) o con
+   * una preferencia de día/horario que coincide con este espacio. Entre los
+   * elegibles, gana el más antiguo en la fila (FIFO). Si nadie califica, el
+   * appointment se queda OPEN para agendarse directo.
    */
   async assignNextForAppointment(appointmentId: string) {
     return this.prisma.$transaction(async (tx) => {
@@ -67,13 +89,18 @@ export class WaitlistService {
         return null; // ya fue tomado o no existe
       }
 
-      const nextCandidate = await tx.waitlistEntry.findFirst({
+      const slotWeekday = appointment.startsAt.getDay();
+      const slotMinute = appointment.startsAt.getHours() * 60 + appointment.startsAt.getMinutes();
+
+      const waitingEntries = await tx.waitlistEntry.findMany({
         where: { status: 'WAITING' },
         orderBy: { createdAt: 'asc' },
       });
 
+      const nextCandidate = waitingEntries.find((entry) => matchesSlot(entry, slotWeekday, slotMinute));
+
       if (!nextCandidate) {
-        this.logger.log(`Sin candidatos en fila para el appointment ${appointmentId}, queda abierto`);
+        this.logger.log(`Sin candidatos elegibles para el appointment ${appointmentId}, queda abierto`);
         return null;
       }
 
@@ -170,4 +197,27 @@ export class WaitlistService {
 
     return { expiredCount: expired.length };
   }
+}
+
+/** Convierte "HH:mm" a minutos desde medianoche. */
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** Determina si una entrada de la fila acepta un espacio en ese día/hora. */
+function matchesSlot(
+  entry: { preferredWeekday: number | null; preferredStartMinute: number | null; preferredEndMinute: number | null },
+  slotWeekday: number,
+  slotMinute: number,
+): boolean {
+  if (entry.preferredWeekday !== null && entry.preferredWeekday !== slotWeekday) {
+    return false;
+  }
+  if (entry.preferredStartMinute !== null && entry.preferredEndMinute !== null) {
+    if (slotMinute < entry.preferredStartMinute || slotMinute >= entry.preferredEndMinute) {
+      return false;
+    }
+  }
+  return true;
 }

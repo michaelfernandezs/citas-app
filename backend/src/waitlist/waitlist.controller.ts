@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/c
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import { WaitlistService } from './waitlist.service';
-import { RespondOfferDto } from './dto/waitlist.dto';
+import { RespondOfferDto, JoinWaitlistDto } from './dto/waitlist.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('waitlist')
@@ -10,8 +10,8 @@ export class WaitlistController {
   constructor(private waitlistService: WaitlistService) {}
 
   @Post('join')
-  join(@CurrentUser() user: CurrentUserPayload) {
-    return this.waitlistService.join(user.userId);
+  join(@CurrentUser() user: CurrentUserPayload, @Body() dto: JoinWaitlistDto) {
+    return this.waitlistService.join(user.userId, dto);
   }
 
   @Delete(':entryId')

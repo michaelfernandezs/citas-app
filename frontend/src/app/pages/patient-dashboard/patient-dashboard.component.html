@@ -30,7 +30,7 @@
       </section>
     }
 
-    <!-- En espera: número de turno como ticket -->
+    <!-- En espera: número de turno + qué está pidiendo -->
     @if (waitlistStatus().inQueue && waitlistStatus().status === 'WAITING') {
       <section class="section">
         <h2 class="section-title">Tu turno en la fila virtual</h2>
@@ -38,7 +38,7 @@
           variant="pine"
           eyebrow="Posición en espera"
           value="#{{ waitlistStatus().position }}"
-          meta="Te avisamos aquí en cuanto se libere un espacio."
+          [meta]="'Esperando: ' + preferenceLabel()"
         >
           <button class="ghost-btn" (click)="leaveWaitlist(waitlistStatus().entry!.id)">Salir de la fila</button>
         </app-ticket>
@@ -66,8 +66,51 @@
     <section class="section">
       <h2 class="section-title">Espacios disponibles</h2>
       @if (openSlots().length === 0 && !waitlistStatus().inQueue) {
-        <p class="empty">No hay espacios abiertos por ahora.</p>
-        <button class="primary-btn" (click)="joinWaitlist()">Unirme a la fila virtual</button>
+        <div class="waitlist-form">
+          <p class="empty">No hay espacios abiertos por ahora. Únete a la fila virtual:</p>
+
+          <div class="mode-toggle">
+            <button
+              type="button"
+              class="mode-btn"
+              [class.mode-btn--active]="joinMode === 'any'"
+              (click)="joinMode = 'any'"
+            >
+              Cualquier horario
+            </button>
+            <button
+              type="button"
+              class="mode-btn"
+              [class.mode-btn--active]="joinMode === 'specific'"
+              (click)="joinMode = 'specific'"
+            >
+              Un día y horario específico
+            </button>
+          </div>
+
+          @if (joinMode === 'specific') {
+            <div class="pref-row">
+              <label>
+                Día
+                <select [(ngModel)]="preferredWeekday" name="preferredWeekday">
+                  @for (day of weekdays; track day.value) {
+                    <option [value]="day.value">{{ day.label }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                Desde
+                <input type="time" [(ngModel)]="preferredStartTime" name="preferredStartTime" />
+              </label>
+              <label>
+                Hasta
+                <input type="time" [(ngModel)]="preferredEndTime" name="preferredEndTime" />
+              </label>
+            </div>
+          }
+
+          <button class="primary-btn" (click)="joinWaitlist()">Unirme a la fila virtual</button>
+        </div>
       } @else {
         <app-week-calendar [slots]="openSlots()" (book)="book($event)"></app-week-calendar>
       }

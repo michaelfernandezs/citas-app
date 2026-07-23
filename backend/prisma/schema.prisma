@@ -70,6 +70,13 @@ model WaitlistEntry {
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 
+  // Preferencia opcional: si son null, el paciente acepta cualquier espacio.
+  // preferredWeekday: 0=domingo ... 6=sábado
+  preferredWeekday      Int?
+  // Minutos desde medianoche, ej. 15:00 = 900. Ambos deben ir juntos o ambos null.
+  preferredStartMinute  Int?
+  preferredEndMinute    Int?
+
   offeredAppointment    Appointment?    @relation("OfferedTo")
 
   @@index([status, createdAt])

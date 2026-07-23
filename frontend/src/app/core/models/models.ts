@@ -28,6 +28,9 @@ export interface WaitlistEntry {
   patientId: string;
   status: WaitlistStatus;
   createdAt: string;
+  preferredWeekday: number | null;
+  preferredStartMinute: number | null;
+  preferredEndMinute: number | null;
 }
 
 export interface MyWaitlistStatus {

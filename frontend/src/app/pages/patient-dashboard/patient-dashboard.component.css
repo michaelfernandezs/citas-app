@@ -94,3 +94,61 @@ button {
   font-size: 14px;
   margin-bottom: 16px;
 }
+
+.waitlist-form {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--paper-raised);
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mode-btn--active {
+  border-color: var(--pine);
+  color: var(--pine-dark);
+  background: #e4ede9;
+  font-weight: 500;
+}
+
+.pref-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.pref-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 110px;
+}
+
+.pref-row select,
+.pref-row input {
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: var(--font-body);
+  background: #fff;
+  color: var(--ink);
+}
