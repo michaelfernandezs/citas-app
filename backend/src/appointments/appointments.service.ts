@@ -1,75 +1,36 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
-import { CreateSlotDto, CreateRecurringSlotsDto } from './dto/appointments.dto';
+import { ScheduleService } from '../schedule/schedule.service';
+import { BookAppointmentDto } from './dto/appointments.dto';
 
 @Injectable()
 export class AppointmentsService {
   constructor(
     private prisma: PrismaService,
     private waitlistService: WaitlistService,
+    private scheduleService: ScheduleService,
   ) {}
 
-  // ---------- ADMIN ----------
-
-  async createSlot(dto: CreateSlotDto) {
+  async book(patientId: string, dto: BookAppointmentDto) {
     const startsAt = new Date(dto.startsAt);
-    const endsAt = new Date(startsAt.getTime() + dto.durationMinutes * 60 * 1000);
-    return this.prisma.appointment.create({ data: { startsAt, endsAt, status: 'OPEN' } });
-  }
+    const config = await this.scheduleService.getConfig();
+    const endsAt = new Date(startsAt.getTime() + config.slotDurationMinutes * 60 * 1000);
 
-  /** Genera slots recurrentes en un rango de fechas y horas, ej. lunes a viernes 9am-5pm. */
-  async createRecurringSlots(dto: CreateRecurringSlotsDto) {
-    const from = new Date(dto.fromDate);
-    const to = new Date(dto.toDate);
-    const exclude = new Set(dto.excludeWeekdays ?? []);
-    const slots: { startsAt: Date; endsAt: Date; status: 'OPEN' }[] = [];
+    const dayStart = new Date(startsAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(startsAt);
+    dayEnd.setHours(23, 59, 59, 999);
 
-    for (let day = new Date(from); day <= to; day.setDate(day.getDate() + 1)) {
-      if (exclude.has(day.getDay())) continue;
+    const freeSlots = await this.scheduleService.computeAvailability(dayStart, dayEnd);
+    const isValidSlot = freeSlots.some((slot) => slot.startsAt.getTime() === startsAt.getTime());
 
-      for (let hour = dto.startHour; hour < dto.endHour; hour += dto.durationMinutes / 60) {
-        const startsAt = new Date(day);
-        startsAt.setHours(Math.floor(hour), (hour % 1) * 60, 0, 0);
-        const endsAt = new Date(startsAt.getTime() + dto.durationMinutes * 60 * 1000);
-        slots.push({ startsAt, endsAt, status: 'OPEN' });
-      }
+    if (!isValidSlot) {
+      throw new BadRequestException('Ese horario ya no está disponible, puedes unirte a la fila virtual');
     }
 
-    await this.prisma.appointment.createMany({ data: slots });
-    return { created: slots.length };
-  }
-
-  async listAllForAdmin() {
-    return this.prisma.appointment.findMany({
-      orderBy: { startsAt: 'asc' },
-      include: { patient: { select: { id: true, name: true, email: true } } },
-    });
-  }
-
-  async cancelAsAdmin(appointmentId: string) {
-    return this.cancelInternal(appointmentId);
-  }
-
-  // ---------- PACIENTE ----------
-
-  async listOpenSlots() {
-    return this.prisma.appointment.findMany({
-      where: { status: 'OPEN', startsAt: { gt: new Date() } },
-      orderBy: { startsAt: 'asc' },
-    });
-  }
-
-  async book(patientId: string, appointmentId: string) {
-    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
-    if (!appointment) throw new NotFoundException('El espacio no existe');
-    if (appointment.status !== 'OPEN') {
-      throw new BadRequestException('Ese espacio ya no está disponible, puedes unirte a la fila virtual');
-    }
-
-    return this.prisma.appointment.update({
-      where: { id: appointmentId },
-      data: { status: 'SCHEDULED', patientId },
+    return this.prisma.appointment.create({
+      data: { patientId, startsAt, endsAt, status: 'SCHEDULED' },
     });
   }
 
@@ -88,26 +49,33 @@ export class AppointmentsService {
       throw new BadRequestException('Solo puedes cancelar citas confirmadas');
     }
 
-    return this.cancelInternal(appointmentId);
+    return this.cancelInternal(appointment.id, appointment.startsAt, appointment.endsAt);
   }
 
-  // ---------- COMPARTIDO ----------
+  async listAllForAdmin() {
+    return this.prisma.appointment.findMany({
+      orderBy: { startsAt: 'asc' },
+      include: { patient: { select: { id: true, name: true, email: true } } },
+    });
+  }
 
-  /** Cancela la cita, la deja OPEN y dispara la asignación al siguiente en la fila. */
-  private async cancelInternal(appointmentId: string) {
+  async cancelAsAdmin(appointmentId: string) {
+    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
+    if (!appointment) throw new NotFoundException('La cita no existe');
+    if (appointment.status !== 'SCHEDULED') {
+      throw new BadRequestException('Solo puedes cancelar citas confirmadas');
+    }
+
+    return this.cancelInternal(appointment.id, appointment.startsAt, appointment.endsAt);
+  }
+
+  private async cancelInternal(appointmentId: string, startsAt: Date, endsAt: Date) {
     const cancelled = await this.prisma.appointment.update({
       where: { id: appointmentId },
-      data: {
-        status: 'OPEN',
-        patientId: null,
-        cancelledAt: new Date(),
-        offerExpiresAt: null,
-        waitlistEntryId: null,
-      },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
 
-    // Intenta ofrecer el espacio recién liberado al siguiente en la fila virtual
-    await this.waitlistService.assignNextForAppointment(appointmentId);
+    await this.waitlistService.assignNextForFreedSlot(startsAt, endsAt);
 
     return cancelled;
   }

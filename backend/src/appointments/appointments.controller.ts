@@ -4,23 +4,16 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import { AppointmentsService } from './appointments.service';
-import { CreateSlotDto, CreateRecurringSlotsDto } from './dto/appointments.dto';
+import { BookAppointmentDto } from './dto/appointments.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('appointments')
 export class AppointmentsController {
   constructor(private appointmentsService: AppointmentsService) {}
 
-  // ----- Paciente -----
-
-  @Get('open')
-  listOpenSlots() {
-    return this.appointmentsService.listOpenSlots();
-  }
-
-  @Post(':id/book')
-  book(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
-    return this.appointmentsService.book(user.userId, id);
+  @Post('book')
+  book(@CurrentUser() user: CurrentUserPayload, @Body() dto: BookAppointmentDto) {
+    return this.appointmentsService.book(user.userId, dto);
   }
 
   @Get('mine')
@@ -31,22 +24,6 @@ export class AppointmentsController {
   @Delete(':id')
   cancel(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.appointmentsService.cancelAsPatient(user.userId, id);
-  }
-
-  // ----- Admin -----
-
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
-  @Post('admin/slots')
-  createSlot(@Body() dto: CreateSlotDto) {
-    return this.appointmentsService.createSlot(dto);
-  }
-
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
-  @Post('admin/slots/recurring')
-  createRecurringSlots(@Body() dto: CreateRecurringSlotsDto) {
-    return this.appointmentsService.createRecurringSlots(dto);
   }
 
   @UseGuards(RolesGuard)

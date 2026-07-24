@@ -10,7 +10,6 @@ export class WaitlistService {
 
   constructor(private prisma: PrismaService) {}
 
-  /** El paciente se une a la fila, con o sin preferencia de día/horario. */
   async join(patientId: string, dto: JoinWaitlistDto) {
     const active = await this.prisma.waitlistEntry.findFirst({
       where: { patientId, status: { in: ['WAITING', 'OFFERED'] } },
@@ -42,7 +41,6 @@ export class WaitlistService {
     });
   }
 
-  /** El paciente cancela su propio lugar en la fila (solo si sigue en WAITING). */
   async leave(patientId: string, entryId: string) {
     const entry = await this.prisma.waitlistEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new NotFoundException('No existe ese lugar en la fila');
@@ -57,11 +55,10 @@ export class WaitlistService {
     });
   }
 
-  /** Estado de la fila para un paciente: su entrada activa + posición (si aplica). */
   async myStatus(patientId: string) {
     const entry = await this.prisma.waitlistEntry.findFirst({
       where: { patientId, status: { in: ['WAITING', 'OFFERED'] } },
-      include: { offeredAppointment: true },
+      include: { offer: true },
     });
     if (!entry) return { inQueue: false };
 
@@ -72,25 +69,13 @@ export class WaitlistService {
       return { inQueue: true, status: 'WAITING', position: position + 1, entry };
     }
 
-    return { inQueue: true, status: 'OFFERED', entry, offer: entry.offeredAppointment };
+    return { inQueue: true, status: 'OFFERED', entry, offer: entry.offer };
   }
 
-  /**
-   * Núcleo del sistema: busca al siguiente candidato elegible y le ofrece el
-   * espacio liberado. Elegible = sin preferencia (acepta cualquier cosa) o con
-   * una preferencia de día/horario que coincide con este espacio. Entre los
-   * elegibles, gana el más antiguo en la fila (FIFO). Si nadie califica, el
-   * appointment se queda OPEN para agendarse directo.
-   */
-  async assignNextForAppointment(appointmentId: string) {
+  async assignNextForFreedSlot(startsAt: Date, endsAt: Date) {
     return this.prisma.$transaction(async (tx) => {
-      const appointment = await tx.appointment.findUnique({ where: { id: appointmentId } });
-      if (!appointment || appointment.status !== 'OPEN') {
-        return null; // ya fue tomado o no existe
-      }
-
-      const slotWeekday = appointment.startsAt.getDay();
-      const slotMinute = appointment.startsAt.getHours() * 60 + appointment.startsAt.getMinutes();
+      const slotWeekday = startsAt.getDay();
+      const slotMinute = startsAt.getHours() * 60 + startsAt.getMinutes();
 
       const waitingEntries = await tx.waitlistEntry.findMany({
         where: { status: 'WAITING' },
@@ -100,112 +85,95 @@ export class WaitlistService {
       const nextCandidate = waitingEntries.find((entry) => matchesSlot(entry, slotWeekday, slotMinute));
 
       if (!nextCandidate) {
-        this.logger.log(`Sin candidatos elegibles para el appointment ${appointmentId}, queda abierto`);
+        this.logger.log(`Sin candidatos elegibles para el espacio ${startsAt.toISOString()}, queda libre`);
         return null;
       }
 
-      const offerExpiresAt = new Date(Date.now() + OFFER_WINDOW_HOURS * 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + OFFER_WINDOW_HOURS * 60 * 60 * 1000);
 
       await tx.waitlistEntry.update({
         where: { id: nextCandidate.id },
         data: { status: 'OFFERED' },
       });
 
-      const updatedAppointment = await tx.appointment.update({
-        where: { id: appointmentId },
-        data: {
-          status: 'OFFERED',
-          offerExpiresAt,
-          waitlistEntryId: nextCandidate.id,
-        },
+      const offer = await tx.offer.create({
+        data: { waitlistEntryId: nextCandidate.id, startsAt, endsAt, expiresAt, status: 'PENDING' },
       });
 
       this.logger.log(
-        `Espacio ${appointmentId} ofrecido a paciente ${nextCandidate.patientId}, expira ${offerExpiresAt.toISOString()}`,
+        `Espacio ${startsAt.toISOString()} ofrecido a paciente ${nextCandidate.patientId}, expira ${expiresAt.toISOString()}`,
       );
 
-      // TODO: aquí se dispara el email de notificación al paciente
-      return updatedAppointment;
+      return offer;
     });
   }
 
-  /** El paciente responde (acepta o rechaza) una oferta activa. */
   async respondToOffer(patientId: string, entryId: string, accept: boolean) {
     return this.prisma.$transaction(async (tx) => {
       const entry = await tx.waitlistEntry.findUnique({
         where: { id: entryId },
-        include: { offeredAppointment: true },
+        include: { offer: true },
       });
       if (!entry) throw new NotFoundException('No existe esa oferta');
       if (entry.patientId !== patientId) throw new ForbiddenException('No es tu oferta');
-      if (entry.status !== 'OFFERED' || !entry.offeredAppointment) {
+      if (entry.status !== 'OFFERED' || !entry.offer) {
         throw new BadRequestException('No tienes una oferta activa');
       }
-      if (entry.offeredAppointment.offerExpiresAt && entry.offeredAppointment.offerExpiresAt < new Date()) {
+      if (entry.offer.expiresAt < new Date()) {
         throw new BadRequestException('La oferta ya expiró');
       }
 
-      const appointmentId = entry.offeredAppointment.id;
+      const { startsAt, endsAt } = entry.offer;
 
       if (accept) {
+        const conflict = await tx.appointment.findFirst({
+          where: { status: 'SCHEDULED', startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
+        });
+        if (conflict) {
+          await tx.offer.update({ where: { id: entry.offer.id }, data: { status: 'EXPIRED' } });
+          await tx.waitlistEntry.update({ where: { id: entryId }, data: { status: 'EXPIRED' } });
+          throw new BadRequestException('Ese espacio ya fue tomado, tu oferta expiró');
+        }
+
+        await tx.offer.update({ where: { id: entry.offer.id }, data: { status: 'ACCEPTED' } });
         await tx.waitlistEntry.update({ where: { id: entryId }, data: { status: 'ACCEPTED' } });
-        return tx.appointment.update({
-          where: { id: appointmentId },
-          data: {
-            status: 'SCHEDULED',
-            patientId,
-            offerExpiresAt: null,
-            waitlistEntryId: null,
-          },
+
+        return tx.appointment.create({
+          data: { patientId, startsAt, endsAt, status: 'SCHEDULED' },
         });
       }
 
+      await tx.offer.update({ where: { id: entry.offer.id }, data: { status: 'REJECTED' } });
       await tx.waitlistEntry.update({ where: { id: entryId }, data: { status: 'REJECTED' } });
-      await tx.appointment.update({
-        where: { id: appointmentId },
-        data: { status: 'OPEN', offerExpiresAt: null, waitlistEntryId: null },
-      });
 
-      // vuelve a ofrecer el mismo espacio al siguiente en la fila
-      return this.assignNextForAppointment(appointmentId);
+      return this.assignNextForFreedSlot(startsAt, endsAt);
     });
   }
 
-  /** Revisa ofertas vencidas y las libera. Llamado por el cron cada minuto. */
   async expireOverdueOffers() {
-    const expired = await this.prisma.appointment.findMany({
-      where: { status: 'OFFERED', offerExpiresAt: { lt: new Date() } },
+    const expired = await this.prisma.offer.findMany({
+      where: { status: 'PENDING', expiresAt: { lt: new Date() } },
     });
 
-    for (const appointment of expired) {
+    for (const offer of expired) {
       await this.prisma.$transaction(async (tx) => {
-        if (appointment.waitlistEntryId) {
-          await tx.waitlistEntry.update({
-            where: { id: appointment.waitlistEntryId },
-            data: { status: 'EXPIRED' },
-          });
-        }
-        await tx.appointment.update({
-          where: { id: appointment.id },
-          data: { status: 'OPEN', offerExpiresAt: null, waitlistEntryId: null },
-        });
+        await tx.offer.update({ where: { id: offer.id }, data: { status: 'EXPIRED' } });
+        await tx.waitlistEntry.update({ where: { id: offer.waitlistEntryId }, data: { status: 'EXPIRED' } });
       });
 
-      this.logger.log(`Oferta expirada para appointment ${appointment.id}, reasignando`);
-      await this.assignNextForAppointment(appointment.id);
+      this.logger.log(`Oferta expirada para el espacio ${offer.startsAt.toISOString()}, reasignando`);
+      await this.assignNextForFreedSlot(offer.startsAt, offer.endsAt);
     }
 
     return { expiredCount: expired.length };
   }
 }
 
-/** Convierte "HH:mm" a minutos desde medianoche. */
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 }
 
-/** Determina si una entrada de la fila acepta un espacio en ese día/hora. */
 function matchesSlot(
   entry: { preferredWeekday: number | null; preferredStartMinute: number | null; preferredEndMinute: number | null },
   slotWeekday: number,
