@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { ScheduleService } from '../schedule/schedule.service';
@@ -29,9 +30,29 @@ export class AppointmentsService {
       throw new BadRequestException('Ese horario ya no está disponible, puedes unirte a la fila virtual');
     }
 
-    return this.prisma.appointment.create({
-      data: { patientId, startsAt, endsAt, status: 'SCHEDULED' },
-    });
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const conflict = await tx.appointment.findFirst({
+            where: { status: 'SCHEDULED', startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
+          });
+          if (conflict) {
+            throw new BadRequestException('Ese horario se acaba de ocupar, elige otro');
+          }
+
+          return tx.appointment.create({
+            data: { patientId, startsAt, endsAt, status: 'SCHEDULED' },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (err: any) {
+      if (err instanceof BadRequestException) throw err;
+      if (err?.code === 'P2034') {
+        throw new BadRequestException('Ese horario se acaba de ocupar, elige otro');
+      }
+      throw err;
+    }
   }
 
   async listMine(patientId: string) {

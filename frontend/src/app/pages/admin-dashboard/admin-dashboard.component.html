@@ -9,12 +9,12 @@
 
   <div class="stats">
     <div class="stat">
-      <span class="stat-value">{{ openCount() }}</span>
-      <span class="stat-label">Espacios abiertos</span>
-    </div>
-    <div class="stat">
       <span class="stat-value">{{ scheduledCount() }}</span>
       <span class="stat-label">Citas confirmadas</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value">{{ workingHours().length }}</span>
+      <span class="stat-label">Franjas de horario</span>
     </div>
   </div>
 
@@ -26,55 +26,111 @@
   }
 
   <section class="card">
-    <h2>Crear un espacio suelto</h2>
-    <div class="form-row">
-      <label>
-        Fecha
-        <input type="date" [(ngModel)]="singleDate" name="singleDate" />
-      </label>
-      <label>
-        Hora
-        <input type="time" [(ngModel)]="singleTime" name="singleTime" />
-      </label>
-      <label>
-        Duración (min)
-        <input type="number" [(ngModel)]="singleDuration" name="singleDuration" min="5" />
-      </label>
-    </div>
-    <button class="primary-btn" (click)="createSingleSlot()">Crear espacio</button>
-  </section>
+    <h2>Horario de trabajo</h2>
 
-  <section class="card">
-    <h2>Crear espacios recurrentes</h2>
-    <div class="form-row">
+    @if (workingHours().length === 0) {
+      <p class="empty">Todavía no has configurado ningún horario.</p>
+    }
+    <div class="list">
+      @for (wh of workingHours(); track wh.id) {
+        <div class="row">
+          <span class="row-time">{{ weekdayLabel(wh.weekday) }}: {{ minutesToLabel(wh.startMinute) }} – {{ minutesToLabel(wh.endMinute) }}</span>
+          <button class="ghost-btn" (click)="deleteWorkingHours(wh.id)">Eliminar</button>
+        </div>
+      }
+    </div>
+
+    <div class="form-row" style="margin-top: 14px;">
+      <label>
+        Día
+        <select [(ngModel)]="newWeekday" name="newWeekday">
+          @for (day of weekdays; track day.value) {
+            <option [ngValue]="day.value">{{ day.label }}</option>
+          }
+        </select>
+      </label>
       <label>
         Desde
-        <input type="date" [(ngModel)]="fromDate" name="fromDate" />
+        <input type="time" [(ngModel)]="newStartTime" name="newStartTime" />
       </label>
       <label>
         Hasta
-        <input type="date" [(ngModel)]="toDate" name="toDate" />
+        <input type="time" [(ngModel)]="newEndTime" name="newEndTime" />
+      </label>
+    </div>
+    <button class="primary-btn" (click)="addWorkingHours()">Agregar franja de horario</button>
+  </section>
+
+  <section class="card">
+    <h2>Excepciones (vacaciones, festivos, horario reducido)</h2>
+
+    @if (exceptions().length === 0) {
+      <p class="empty">No hay excepciones registradas.</p>
+    }
+    <div class="list">
+      @for (ex of exceptions(); track ex.id) {
+        <div class="row">
+          <span class="row-time">
+            {{ ex.date | date: 'd MMM yyyy' }} —
+            @if (ex.isClosed) {
+              No disponible
+            } @else {
+              Solo {{ minutesToLabel(ex.startMinute!) }} – {{ minutesToLabel(ex.endMinute!) }}
+            }
+          </span>
+          <button class="ghost-btn" (click)="deleteException(ex.id)">Eliminar</button>
+        </div>
+      }
+    </div>
+
+    <div class="form-row" style="margin-top: 14px;">
+      <label>
+        Fecha
+        <input type="date" [(ngModel)]="exceptionDate" name="exceptionDate" />
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="exceptionIsClosed" name="exceptionIsClosed" />
+        Día completo no disponible
+      </label>
+    </div>
+    @if (!exceptionIsClosed) {
+      <div class="form-row">
+        <label>
+          Desde
+          <input type="time" [(ngModel)]="exceptionStartTime" name="exceptionStartTime" />
+        </label>
+        <label>
+          Hasta
+          <input type="time" [(ngModel)]="exceptionEndTime" name="exceptionEndTime" />
+        </label>
+      </div>
+    }
+    <button class="primary-btn" (click)="addException()">Guardar excepción</button>
+  </section>
+
+  <section class="card">
+    <h2>Configuración</h2>
+    <div class="form-row">
+      <label>
+        Duración de cada cita (min)
+        <input type="number" [(ngModel)]="slotDurationMinutes" name="slotDurationMinutes" min="5" />
+      </label>
+      <label>
+        Descanso entre citas (min)
+        <input type="number" [(ngModel)]="bufferMinutes" name="bufferMinutes" min="0" />
       </label>
     </div>
     <div class="form-row">
       <label>
-        Hora inicio
-        <input type="number" [(ngModel)]="startHour" name="startHour" min="0" max="23" />
+        Anticipación mínima (horas)
+        <input type="number" [(ngModel)]="minNoticeHours" name="minNoticeHours" min="0" />
       </label>
       <label>
-        Hora fin
-        <input type="number" [(ngModel)]="endHour" name="endHour" min="0" max="23" />
-      </label>
-      <label>
-        Duración (min)
-        <input type="number" [(ngModel)]="recurringDuration" name="recurringDuration" min="5" />
+        Máximo de días para agendar
+        <input type="number" [(ngModel)]="maxAdvanceDays" name="maxAdvanceDays" min="1" />
       </label>
     </div>
-    <label class="checkbox-label">
-      <input type="checkbox" [(ngModel)]="excludeWeekends" name="excludeWeekends" />
-      Excluir fines de semana
-    </label>
-    <button class="primary-btn" (click)="createRecurring()">Generar espacios</button>
+    <button class="primary-btn" (click)="saveConfig()">Guardar configuración</button>
   </section>
 
   <section class="card">

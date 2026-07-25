@@ -1,24 +1,24 @@
 import { IsBoolean, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
 export class RespondOfferDto {
-  @IsBoolean()
-  accept: boolean;
+  @IsBoolean({ message: 'accept debe ser verdadero o falso' })
+  accept!: boolean;
 }
 
 export class JoinWaitlistDto {
-  // 0=domingo ... 6=sábado. Si se omite, el paciente acepta cualquier día.
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(6)
+  @IsInt({ message: 'El día debe ser un número' })
+  @Min(0, { message: 'El día debe estar entre 0 (domingo) y 6 (sábado)' })
+  @Max(6, { message: 'El día debe estar entre 0 (domingo) y 6 (sábado)' })
   preferredWeekday?: number;
 
-  // Formato "HH:mm", ej "15:00". Si se manda uno, se debe mandar el otro también.
   @IsOptional()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: 'preferredStartTime debe tener formato HH:mm' })
+  @Matches(TIME_REGEX, { message: 'La hora de inicio debe tener formato HH:mm (ej. 09:00)' })
   preferredStartTime?: string;
 
   @IsOptional()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: 'preferredEndTime debe tener formato HH:mm' })
+  @Matches(TIME_REGEX, { message: 'La hora de fin debe tener formato HH:mm (ej. 13:00)' })
   preferredEndTime?: string;
 }

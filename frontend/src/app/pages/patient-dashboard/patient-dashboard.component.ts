@@ -3,10 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppointmentsService } from '../../core/services/appointments.service';
 import { WaitlistService } from '../../core/services/waitlist.service';
+import { ScheduleService } from '../../core/services/schedule.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Appointment, MyWaitlistStatus } from '../../core/models/models';
+import { Appointment, FreeSlot, MyWaitlistStatus } from '../../core/models/models';
 import { TicketComponent } from '../../shared/ticket/ticket.component';
 import { WeekCalendarComponent } from '../../shared/week-calendar/week-calendar.component';
+
+const DAYS_AHEAD_TO_SHOW = 14;
 
 @Component({
   selector: 'app-patient-dashboard',
@@ -16,15 +19,14 @@ import { WeekCalendarComponent } from '../../shared/week-calendar/week-calendar.
   styleUrl: './patient-dashboard.component.css',
 })
 export class PatientDashboardComponent implements OnInit {
-  openSlots = signal<Appointment[]>([]);
+  openSlots = signal<FreeSlot[]>([]);
   myAppointments = signal<Appointment[]>([]);
   waitlistStatus = signal<MyWaitlistStatus>({ inQueue: false });
   loading = signal(true);
   actionError = signal<string | null>(null);
 
-  // formulario para unirse a la fila
   joinMode: 'any' | 'specific' = 'any';
-  preferredWeekday = 1; // lunes
+  preferredWeekday = 1;
   preferredStartTime = '09:00';
   preferredEndTime = '13:00';
 
@@ -41,6 +43,7 @@ export class PatientDashboardComponent implements OnInit {
   constructor(
     private appointmentsService: AppointmentsService,
     private waitlistService: WaitlistService,
+    private scheduleService: ScheduleService,
     public auth: AuthService,
   ) {}
 
@@ -50,8 +53,17 @@ export class PatientDashboardComponent implements OnInit {
 
   refreshAll() {
     this.loading.set(true);
-    this.appointmentsService.listOpen().subscribe((slots) => this.openSlots.set(slots));
+
+    const from = new Date();
+    const to = new Date();
+    to.setDate(to.getDate() + DAYS_AHEAD_TO_SHOW);
+
+    this.scheduleService.getAvailability(from.toISOString(), to.toISOString()).subscribe((slots) => {
+      this.openSlots.set(slots);
+    });
+
     this.appointmentsService.listMine().subscribe((mine) => this.myAppointments.set(mine));
+
     this.waitlistService.myStatus().subscribe({
       next: (status) => {
         this.waitlistStatus.set(status);
@@ -61,9 +73,9 @@ export class PatientDashboardComponent implements OnInit {
     });
   }
 
-  book(id: string) {
+  book(startsAt: string) {
     this.actionError.set(null);
-    this.appointmentsService.book(id).subscribe({
+    this.appointmentsService.book(startsAt).subscribe({
       next: () => this.refreshAll(),
       error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo agendar'),
     });
@@ -94,22 +106,6 @@ export class PatientDashboardComponent implements OnInit {
     });
   }
 
-  preferenceLabel(): string {
-    const entry = this.waitlistStatus().entry;
-    if (!entry || entry.preferredWeekday === null) return 'Cualquier día y horario';
-    const day = this.weekdays.find((w) => w.value === entry.preferredWeekday)?.label ?? '';
-    if (entry.preferredStartMinute === null || entry.preferredEndMinute === null) return day;
-    return `${day}, ${this.minutesToLabel(entry.preferredStartMinute)}–${this.minutesToLabel(entry.preferredEndMinute)}`;
-  }
-
-  private minutesToLabel(minutes: number): string {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    const period = h >= 12 ? 'pm' : 'am';
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return `${h12}:${m.toString().padStart(2, '0')}${period}`;
-  }
-
   leaveWaitlist(entryId: string) {
     this.actionError.set(null);
     this.waitlistService.leave(entryId).subscribe({
@@ -126,12 +122,28 @@ export class PatientDashboardComponent implements OnInit {
     });
   }
 
-  logout() {
-    this.auth.logout();
-  }
-
   hasScheduled(): boolean {
     return this.myAppointments().some((a) => a.status === 'SCHEDULED');
+  }
+
+  preferenceLabel(): string {
+    const entry = this.waitlistStatus().entry;
+    if (!entry || entry.preferredWeekday === null) return 'Cualquier día y horario';
+    const day = this.weekdays.find((w) => w.value === entry.preferredWeekday)?.label ?? '';
+    if (entry.preferredStartMinute === null || entry.preferredEndMinute === null) return day;
+    return `${day}, ${this.minutesToLabel(entry.preferredStartMinute)}–${this.minutesToLabel(entry.preferredEndMinute)}`;
+  }
+
+  private minutesToLabel(minutes: number): string {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const period = h >= 12 ? 'pm' : 'am';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${m.toString().padStart(2, '0')}${period}`;
+  }
+
+  logout() {
+    this.auth.logout();
   }
 
   hourLabel(iso: string): string {

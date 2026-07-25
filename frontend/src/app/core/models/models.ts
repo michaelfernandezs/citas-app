@@ -9,16 +9,20 @@ export interface AuthResponse {
   user: User;
 }
 
-export type AppointmentStatus = 'OPEN' | 'SCHEDULED' | 'OFFERED' | 'CANCELLED' | 'COMPLETED';
+export type AppointmentStatus = 'SCHEDULED' | 'CANCELLED' | 'COMPLETED';
 
 export interface Appointment {
   id: string;
-  patientId: string | null;
+  patientId: string;
   startsAt: string;
   endsAt: string;
   status: AppointmentStatus;
-  offerExpiresAt: string | null;
   patient?: { id: string; name: string; email: string } | null;
+}
+
+export interface FreeSlot {
+  startsAt: string;
+  endsAt: string;
 }
 
 export type WaitlistStatus = 'WAITING' | 'OFFERED' | 'ACCEPTED' | 'EXPIRED' | 'REJECTED' | 'CANCELLED_BY_PATIENT';
@@ -33,10 +37,41 @@ export interface WaitlistEntry {
   preferredEndMinute: number | null;
 }
 
+export interface Offer {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  expiresAt: string;
+  status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REJECTED';
+}
+
 export interface MyWaitlistStatus {
   inQueue: boolean;
   status?: 'WAITING' | 'OFFERED';
   position?: number;
   entry?: WaitlistEntry;
-  offer?: Appointment;
+  offer?: Offer;
+}
+
+export interface WorkingHours {
+  id: string;
+  weekday: number;
+  startMinute: number;
+  endMinute: number;
+}
+
+export interface ScheduleException {
+  id: string;
+  date: string;
+  isClosed: boolean;
+  startMinute: number | null;
+  endMinute: number | null;
+}
+
+export interface ScheduleConfig {
+  id: string;
+  slotDurationMinutes: number;
+  bufferMinutes: number;
+  minNoticeHours: number;
+  maxAdvanceDays: number;
 }

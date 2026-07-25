@@ -1,9 +1,11 @@
+
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppointmentsService } from '../../core/services/appointments.service';
+import { ScheduleService } from '../../core/services/schedule.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Appointment } from '../../core/models/models';
+import { Appointment, ScheduleConfig, ScheduleException, WorkingHours } from '../../core/models/models';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -14,25 +16,41 @@ import { Appointment } from '../../core/models/models';
 })
 export class AdminDashboardComponent implements OnInit {
   appointments = signal<Appointment[]>([]);
+  workingHours = signal<WorkingHours[]>([]);
+  exceptions = signal<ScheduleException[]>([]);
+  config = signal<ScheduleConfig | null>(null);
+
   loading = signal(true);
   actionError = signal<string | null>(null);
   actionMessage = signal<string | null>(null);
 
-  // form: espacio suelto
-  singleDate = '';
-  singleTime = '';
-  singleDuration = 30;
+  readonly weekdays = [
+    { value: 0, label: 'Domingo' },
+    { value: 1, label: 'Lunes' },
+    { value: 2, label: 'Martes' },
+    { value: 3, label: 'Miércoles' },
+    { value: 4, label: 'Jueves' },
+    { value: 5, label: 'Viernes' },
+    { value: 6, label: 'Sábado' },
+  ];
 
-  // form: espacios recurrentes
-  fromDate = '';
-  toDate = '';
-  startHour = 9;
-  endHour = 17;
-  recurringDuration = 30;
-  excludeWeekends = true;
+  newWeekday = 1;
+  newStartTime = '09:00';
+  newEndTime = '13:00';
+
+  exceptionDate = '';
+  exceptionIsClosed = true;
+  exceptionStartTime = '09:00';
+  exceptionEndTime = '12:00';
+
+  slotDurationMinutes = 30;
+  bufferMinutes = 0;
+  minNoticeHours = 2;
+  maxAdvanceDays = 30;
 
   constructor(
     private appointmentsService: AppointmentsService,
+    private scheduleService: ScheduleService,
     public auth: AuthService,
   ) {}
 
@@ -42,67 +60,100 @@ export class AdminDashboardComponent implements OnInit {
 
   refresh() {
     this.loading.set(true);
-    this.appointmentsService.listAllForAdmin().subscribe({
-      next: (list) => {
-        this.appointments.set(list);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+
+    this.appointmentsService.listAllForAdmin().subscribe((list) => this.appointments.set(list));
+    this.scheduleService.listWorkingHours().subscribe((list) => this.workingHours.set(list));
+    this.scheduleService.listExceptions().subscribe((list) => this.exceptions.set(list));
+    this.scheduleService.getConfig().subscribe((cfg) => {
+      this.config.set(cfg);
+      this.slotDurationMinutes = cfg.slotDurationMinutes;
+      this.bufferMinutes = cfg.bufferMinutes;
+      this.minNoticeHours = cfg.minNoticeHours;
+      this.maxAdvanceDays = cfg.maxAdvanceDays;
+      this.loading.set(false);
     });
   }
 
-  createSingleSlot() {
-    this.actionError.set(null);
-    this.actionMessage.set(null);
-    if (!this.singleDate || !this.singleTime) {
-      this.actionError.set('Falta la fecha u hora');
-      return;
-    }
-    const startsAt = new Date(`${this.singleDate}T${this.singleTime}`).toISOString();
-    this.appointmentsService.createSlot({ startsAt, durationMinutes: this.singleDuration }).subscribe({
-      next: () => {
-        this.actionMessage.set('Espacio creado');
-        this.refresh();
-      },
-      error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo crear el espacio'),
-    });
+  weekdayLabel(value: number): string {
+    return this.weekdays.find((w) => w.value === value)?.label ?? '';
   }
 
-  createRecurring() {
+  minutesToLabel(minutes: number): string {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }
+
+  addWorkingHours() {
     this.actionError.set(null);
     this.actionMessage.set(null);
-    if (!this.fromDate || !this.toDate) {
-      this.actionError.set('Faltan las fechas del rango');
-      return;
-    }
-    this.appointmentsService
-      .createRecurringSlots({
-        fromDate: this.fromDate,
-        toDate: this.toDate,
-        startHour: this.startHour,
-        endHour: this.endHour,
-        durationMinutes: this.recurringDuration,
-        excludeWeekdays: this.excludeWeekends ? [0, 6] : [],
-      })
+    this.scheduleService
+      .createWorkingHours({ weekday: this.newWeekday, startTime: this.newStartTime, endTime: this.newEndTime })
       .subscribe({
-        next: (res) => {
-          this.actionMessage.set(`${res.created} espacios creados`);
+        next: () => {
+          this.actionMessage.set('Horario agregado');
           this.refresh();
         },
-        error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo crear el rango de espacios'),
+        error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo agregar el horario'),
       });
   }
 
-  cancelAppointment(id: string) {
+  deleteWorkingHours(id: string) {
     this.actionError.set(null);
-    this.appointmentsService.cancelAsAdmin(id).subscribe({
+    this.scheduleService.deleteWorkingHours(id).subscribe({
       next: () => this.refresh(),
-      error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo cancelar'),
+      error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo eliminar'),
     });
   }
 
-  logout() {
-    this.auth.logout();
+  addException() {
+    this.actionError.set(null);
+    this.actionMessage.set(null);
+    if (!this.exceptionDate) {
+      this.actionError.set('Falta la fecha de la excepción');
+      return;
+    }
+    this.scheduleService
+      .upsertException({
+        date: this.exceptionDate,
+        isClosed: this.exceptionIsClosed,
+        startTime: this.exceptionIsClosed ? undefined : this.exceptionStartTime,
+        endTime: this.exceptionIsClosed ? undefined : this.exceptionEndTime,
+      })
+      .subscribe({
+        next: () => {
+          this.actionMessage.set('Excepción guardada');
+          this.refresh();
+        },
+        error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo guardar la excepción'),
+      });
+  }
+
+  deleteException(id: string) {
+    this.actionError.set(null);
+    this.scheduleService.deleteException(id).subscribe({
+      next: () => this.refresh(),
+      error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo eliminar'),
+    });
+  }
+
+  saveConfig() {
+    this.actionError.set(null);
+    this.actionMessage.set(null);
+    this.scheduleService
+      .updateConfig({
+        slotDurationMinutes: this.slotDurationMinutes,
+        bufferMinutes: this.bufferMinutes,
+        minNoticeHours: this.minNoticeHours,
+        maxAdvanceDays: this.maxAdvanceDays,
+      })
+      .subscribe({
+        next: () => {
+          this.actionMessage.set('Configuración guardada');
+          this.refresh();
+        },
+        error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo guardar la configuración'),
+      });
   }
 
   hourLabel(iso: string): string {
@@ -117,7 +168,15 @@ export class AdminDashboardComponent implements OnInit {
     return this.appointments().filter((a) => a.status === 'SCHEDULED').length;
   }
 
-  openCount(): number {
-    return this.appointments().filter((a) => a.status === 'OPEN').length;
+  cancelAppointment(id: string) {
+    this.actionError.set(null);
+    this.appointmentsService.cancelAsAdmin(id).subscribe({
+      next: () => this.refresh(),
+      error: (err) => this.actionError.set(err?.error?.message ?? 'No se pudo cancelar'),
+    });
+  }
+
+  logout() {
+    this.auth.logout();
   }
 }

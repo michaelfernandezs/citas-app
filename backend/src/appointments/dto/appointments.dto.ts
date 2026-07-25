@@ -1,6 +1,6 @@
 import { IsDateString } from 'class-validator';
 
 export class BookAppointmentDto {
-  @IsDateString()
+  @IsDateString({}, { message: 'La fecha/hora no es válida' })
   startsAt!: string;
 }

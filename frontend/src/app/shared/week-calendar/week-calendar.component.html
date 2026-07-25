@@ -9,8 +9,8 @@
           <span class="day-number">{{ day.dayNumber }}</span>
         </div>
         <div class="slots">
-          @for (slot of day.slots; track slot.id) {
-            <button class="slot-chip" type="button" (click)="book.emit(slot.id)">
+          @for (slot of day.slots; track slot.startsAt) {
+            <button class="slot-chip" type="button" (click)="book.emit(slot.startsAt)">
               {{ formatHour(slot.startsAt) }}
             </button>
           }
