@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,9 +13,9 @@ enum Role {
 }
 
 enum AppointmentStatus {
-  SCHEDULED // agendada y confirmada
-  CANCELLED // cancelada (historico)
-  COMPLETED // ya se atendio
+  SCHEDULED
+  CANCELLED
+  COMPLETED
 }
 
 enum WaitlistStatus {
@@ -48,37 +47,31 @@ model User {
   waitlistEntries WaitlistEntry[]
 }
 
-/// Horario recurrente semanal. Puede haber varias franjas por día
-/// (ej. lunes 9-13 y lunes 15-18 son dos filas separadas).
 model WorkingHours {
   id          String @id @default(uuid())
-  weekday     Int // 0=domingo ... 6=sábado
-  startMinute Int // minutos desde medianoche, ej 9:00 = 540
+  weekday     Int
+  startMinute Int
   endMinute   Int
 
   @@index([weekday])
 }
 
-/// Excepción para una fecha puntual: cierra el día completo, o lo
-/// reemplaza por un horario reducido/especial.
 model ScheduleException {
   id          String   @id @default(uuid())
-  date        DateTime // solo importa la fecha (se normaliza a medianoche UTC)
+  date        DateTime
   isClosed    Boolean  @default(true)
-  startMinute Int? // si isClosed=false, horario especial de ese día
+  startMinute Int?
   endMinute   Int?
 
   @@unique([date])
 }
 
-/// Configuración global del consultorio. Siempre debe existir una sola fila
-/// con id fijo "singleton".
 model ScheduleConfig {
   id                  String @id @default("singleton")
   slotDurationMinutes Int    @default(30)
-  bufferMinutes       Int    @default(0) // descanso entre citas
-  minNoticeHours      Int    @default(2) // anticipación mínima para agendar
-  maxAdvanceDays      Int    @default(30) // hasta cuántos días a futuro se puede agendar
+  bufferMinutes       Int    @default(0)
+  minNoticeHours      Int    @default(2)
+  maxAdvanceDays      Int    @default(30)
 }
 
 model Appointment {
@@ -91,6 +84,8 @@ model Appointment {
   createdAt   DateTime          @default(now())
   cancelledAt DateTime?
 
+  waitlistWatchers WaitlistEntry[]
+
   @@index([status, startsAt])
 }
 
@@ -102,19 +97,15 @@ model WaitlistEntry {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  // Preferencia opcional: si son null, el paciente acepta cualquier espacio.
-  preferredWeekday     Int? // 0=domingo ... 6=sábado
-  preferredStartMinute Int? // ambos deben ir juntos o ambos null
-  preferredEndMinute   Int?
+  watchedAppointmentId String
+  watchedAppointment   Appointment @relation(fields: [watchedAppointmentId], references: [id])
 
   offer Offer?
 
   @@index([status, createdAt])
+  @@index([watchedAppointmentId, status])
 }
 
-/// Un espacio liberado (por cancelación) ofrecido a alguien de la fila.
-/// Ya no reutiliza filas de Appointment porque los espacios libres no
-/// existen como filas — solo se calculan.
 model Offer {
   id              String        @id @default(uuid())
   waitlistEntryId String        @unique

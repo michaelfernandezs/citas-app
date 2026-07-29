@@ -25,6 +25,12 @@ export interface FreeSlot {
   endsAt: string;
 }
 
+export interface BookedSlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+}
+
 export type WaitlistStatus = 'WAITING' | 'OFFERED' | 'ACCEPTED' | 'EXPIRED' | 'REJECTED' | 'CANCELLED_BY_PATIENT';
 
 export interface WaitlistEntry {
@@ -32,9 +38,8 @@ export interface WaitlistEntry {
   patientId: string;
   status: WaitlistStatus;
   createdAt: string;
-  preferredWeekday: number | null;
-  preferredStartMinute: number | null;
-  preferredEndMinute: number | null;
+  watchedAppointmentId: string;
+  watchedAppointment?: { id: string; startsAt: string; endsAt: string } | null;
 }
 
 export interface Offer {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -19,6 +19,14 @@ export class AppointmentsController {
   @Get('mine')
   listMine(@CurrentUser() user: CurrentUserPayload) {
     return this.appointmentsService.listMine(user.userId);
+  }
+
+  @Get('booked')
+  listBooked(@CurrentUser() user: CurrentUserPayload, @Query('from') from: string, @Query('to') to: string) {
+    if (!from || !to) {
+      throw new BadRequestException('Debes indicar from y to');
+    }
+    return this.appointmentsService.listBookedForWatching(user.userId, new Date(from), new Date(to));
   }
 
   @Delete(':id')

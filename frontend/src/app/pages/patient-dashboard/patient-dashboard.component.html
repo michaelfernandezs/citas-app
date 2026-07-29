@@ -16,7 +16,7 @@
   } @else {
     @if (waitlistStatus().inQueue && waitlistStatus().status === 'OFFERED') {
       <section class="section">
-        <h2 class="section-title">Se liberó un espacio para ti</h2>
+        <h2 class="section-title">Se liberó la cita que esperabas</h2>
         <app-ticket
           variant="rust"
           eyebrow="Oferta de la fila · responde antes de que expire"
@@ -31,12 +31,12 @@
 
     @if (waitlistStatus().inQueue && waitlistStatus().status === 'WAITING') {
       <section class="section">
-        <h2 class="section-title">Tu turno en la fila virtual</h2>
+        <h2 class="section-title">Estás en fila por una cita</h2>
         <app-ticket
           variant="pine"
-          eyebrow="Posición en espera"
+          eyebrow="Posición en espera para esa cita"
           value="#{{ waitlistStatus().position }}"
-          [meta]="'Esperando: ' + preferenceLabel()"
+          [meta]="waitlistStatus().entry?.watchedAppointment ? 'Esperando: ' + dayLabel(waitlistStatus().entry!.watchedAppointment!.startsAt) + ', ' + hourLabel(waitlistStatus().entry!.watchedAppointment!.startsAt) : ''"
         >
           <button class="ghost-btn" (click)="leaveWaitlist(waitlistStatus().entry!.id)">Salir de la fila</button>
         </app-ticket>
@@ -61,58 +61,34 @@
 
     <section class="section">
       <h2 class="section-title">Espacios disponibles</h2>
-
       @if (openSlots().length === 0) {
         <p class="empty">No hay espacios abiertos por ahora.</p>
       } @else {
         <app-week-calendar [slots]="openSlots()" (book)="book($event)"></app-week-calendar>
       }
+    </section>
 
-      @if (!waitlistStatus().inQueue) {
-        <div class="waitlist-form">
-          <p class="empty">¿No encuentras el horario que buscas? Únete a la fila virtual:</p>
+    <section class="section">
+      <h2 class="section-title">Citas ocupadas</h2>
+      <p class="empty" style="margin-bottom: 12px;">
+        Si el horario que quieres ya está tomado, pide que te avisen si se cancela.
+      </p>
 
-          <div class="mode-toggle">
-            <button
-              type="button"
-              class="mode-btn"
-              [class.mode-btn--active]="joinMode === 'any'"
-              (click)="joinMode = 'any'"
-            >
-              Cualquier horario
-            </button>
-            <button
-              type="button"
-              class="mode-btn"
-              [class.mode-btn--active]="joinMode === 'specific'"
-              (click)="joinMode = 'specific'"
-            >
-              Un día y horario específico
-            </button>
-          </div>
+      @if (waitlistStatus().inQueue) {
+        <p class="empty">Ya estás esperando una cita — sal de la fila si quieres cambiar a otra.</p>
+      }
 
-          @if (joinMode === 'specific') {
-            <div class="pref-row">
-              <label>
-                Día
-                <select [(ngModel)]="preferredWeekday" name="preferredWeekday">
-                  @for (day of weekdays; track day.value) {
-                    <option [ngValue]="day.value">{{ day.label }}</option>
-                  }
-                </select>
-              </label>
-              <label>
-                Desde
-                <input type="time" [(ngModel)]="preferredStartTime" name="preferredStartTime" />
-              </label>
-              <label>
-                Hasta
-                <input type="time" [(ngModel)]="preferredEndTime" name="preferredEndTime" />
-              </label>
-            </div>
+      @if (bookedSlots().length === 0) {
+        <p class="empty">No hay citas ocupadas en los próximos días.</p>
+      } @else {
+        <div class="ticket-grid">
+          @for (slot of bookedSlots(); track slot.id) {
+            <app-ticket eyebrow="Ocupado" [value]="hourLabel(slot.startsAt)" [meta]="dayLabel(slot.startsAt)">
+              @if (!waitlistStatus().inQueue) {
+                <button class="ghost-btn" (click)="watchAppointment(slot.id)">Avísame si se cancela</button>
+              }
+            </app-ticket>
           }
-
-          <button class="primary-btn" (click)="joinWaitlist()">Unirme a la fila virtual</button>
         </div>
       }
     </section>

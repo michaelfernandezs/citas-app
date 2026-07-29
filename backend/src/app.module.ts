@@ -10,12 +10,12 @@ import { ClinicScheduleModule } from './schedule/shedule.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ScheduleModule.forRoot(),
+    ScheduleModule.forRoot(), // cron jobs (@nestjs/schedule)
     PrismaModule,
     AuthModule,
     AppointmentsModule,
     WaitlistModule,
-    ClinicScheduleModule,
+    ClinicScheduleModule, // horario, excepciones, config y disponibilidad calculada
   ],
 })
 export class AppModule {}

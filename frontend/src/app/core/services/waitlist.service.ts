@@ -10,12 +10,8 @@ export class WaitlistService {
 
   constructor(private http: HttpClient) {}
 
-  join(preference?: {
-    preferredWeekday?: number;
-    preferredStartTime?: string;
-    preferredEndTime?: string;
-  }): Observable<WaitlistEntry> {
-    return this.http.post<WaitlistEntry>(`${this.base}/join`, preference ?? {});
+  join(appointmentId: string): Observable<WaitlistEntry> {
+    return this.http.post<WaitlistEntry>(`${this.base}/join`, { appointmentId });
   }
 
   leave(entryId: string): Observable<WaitlistEntry> {

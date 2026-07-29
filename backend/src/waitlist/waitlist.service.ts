@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JoinWaitlistDto } from './dto/waitlist.dto';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 const OFFER_WINDOW_HOURS = 3;
 
@@ -8,7 +9,10 @@ const OFFER_WINDOW_HOURS = 3;
 export class WaitlistService {
   private readonly logger = new Logger(WaitlistService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private realtimeGateway: RealtimeGateway,
+  ) {}
 
   async join(patientId: string, dto: JoinWaitlistDto) {
     const active = await this.prisma.waitlistEntry.findFirst({
@@ -18,26 +22,17 @@ export class WaitlistService {
       throw new BadRequestException('Ya tienes un lugar activo en la fila');
     }
 
-    const hasRange = dto.preferredStartTime || dto.preferredEndTime;
-    if (hasRange && (!dto.preferredStartTime || !dto.preferredEndTime)) {
-      throw new BadRequestException('Debes indicar hora de inicio y de fin juntas, o ninguna');
+    const appointment = await this.prisma.appointment.findUnique({ where: { id: dto.appointmentId } });
+    if (!appointment) throw new NotFoundException('Esa cita no existe');
+    if (appointment.status !== 'SCHEDULED') {
+      throw new BadRequestException('Esa cita ya no está ocupada, puedes agendarla directo');
     }
-
-    const preferredStartMinute = dto.preferredStartTime ? toMinutes(dto.preferredStartTime) : null;
-    const preferredEndMinute = dto.preferredEndTime ? toMinutes(dto.preferredEndTime) : null;
-
-    if (preferredStartMinute !== null && preferredEndMinute !== null && preferredStartMinute >= preferredEndMinute) {
-      throw new BadRequestException('La hora de inicio debe ser antes que la hora de fin');
+    if (appointment.patientId === patientId) {
+      throw new BadRequestException('No puedes hacer fila para tu propia cita');
     }
 
     return this.prisma.waitlistEntry.create({
-      data: {
-        patientId,
-        status: 'WAITING',
-        preferredWeekday: dto.preferredWeekday ?? null,
-        preferredStartMinute,
-        preferredEndMinute,
-      },
+      data: { patientId, status: 'WAITING', watchedAppointmentId: dto.appointmentId },
     });
   }
 
@@ -58,13 +53,17 @@ export class WaitlistService {
   async myStatus(patientId: string) {
     const entry = await this.prisma.waitlistEntry.findFirst({
       where: { patientId, status: { in: ['WAITING', 'OFFERED'] } },
-      include: { offer: true },
+      include: { offer: true, watchedAppointment: true },
     });
     if (!entry) return { inQueue: false };
 
     if (entry.status === 'WAITING') {
       const position = await this.prisma.waitlistEntry.count({
-        where: { status: 'WAITING', createdAt: { lt: entry.createdAt } },
+        where: {
+          status: 'WAITING',
+          watchedAppointmentId: entry.watchedAppointmentId,
+          createdAt: { lt: entry.createdAt },
+        },
       });
       return { inQueue: true, status: 'WAITING', position: position + 1, entry };
     }
@@ -72,20 +71,15 @@ export class WaitlistService {
     return { inQueue: true, status: 'OFFERED', entry, offer: entry.offer };
   }
 
-  async assignNextForFreedSlot(startsAt: Date, endsAt: Date) {
-    return this.prisma.$transaction(async (tx) => {
-      const slotWeekday = startsAt.getDay();
-      const slotMinute = startsAt.getHours() * 60 + startsAt.getMinutes();
-
-      const waitingEntries = await tx.waitlistEntry.findMany({
-        where: { status: 'WAITING' },
+  async assignNextForCancelledAppointment(appointmentId: string, startsAt: Date, endsAt: Date) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const nextCandidate = await tx.waitlistEntry.findFirst({
+        where: { status: 'WAITING', watchedAppointmentId: appointmentId },
         orderBy: { createdAt: 'asc' },
       });
 
-      const nextCandidate = waitingEntries.find((entry) => matchesSlot(entry, slotWeekday, slotMinute));
-
       if (!nextCandidate) {
-        this.logger.log(`Sin candidatos elegibles para el espacio ${startsAt.toISOString()}, queda libre`);
+        this.logger.log(`Nadie esperaba la cita ${appointmentId}, queda libre para agendar directo`);
         return null;
       }
 
@@ -101,11 +95,17 @@ export class WaitlistService {
       });
 
       this.logger.log(
-        `Espacio ${startsAt.toISOString()} ofrecido a paciente ${nextCandidate.patientId}, expira ${expiresAt.toISOString()}`,
+        `Cita ${appointmentId} ofrecida a paciente ${nextCandidate.patientId}, expira ${expiresAt.toISOString()}`,
       );
 
-      return offer;
+      return { offer, patientId: nextCandidate.patientId };
     });
+
+    if (result) {
+      this.realtimeGateway.notifyPatient(result.patientId);
+    }
+
+    return result?.offer ?? null;
   }
 
   async respondToOffer(patientId: string, entryId: string, accept: boolean) {
@@ -124,6 +124,7 @@ export class WaitlistService {
       }
 
       const { startsAt, endsAt } = entry.offer;
+      const watchedAppointmentId = entry.watchedAppointmentId;
 
       if (accept) {
         const conflict = await tx.appointment.findFirst({
@@ -138,21 +139,25 @@ export class WaitlistService {
         await tx.offer.update({ where: { id: entry.offer.id }, data: { status: 'ACCEPTED' } });
         await tx.waitlistEntry.update({ where: { id: entryId }, data: { status: 'ACCEPTED' } });
 
-        return tx.appointment.create({
+        const newAppointment = await tx.appointment.create({
           data: { patientId, startsAt, endsAt, status: 'SCHEDULED' },
         });
+
+        this.realtimeGateway.broadcastAvailabilityUpdate();
+        return newAppointment;
       }
 
       await tx.offer.update({ where: { id: entry.offer.id }, data: { status: 'REJECTED' } });
       await tx.waitlistEntry.update({ where: { id: entryId }, data: { status: 'REJECTED' } });
 
-      return this.assignNextForFreedSlot(startsAt, endsAt);
+      return this.assignNextForCancelledAppointment(watchedAppointmentId, startsAt, endsAt);
     });
   }
 
   async expireOverdueOffers() {
     const expired = await this.prisma.offer.findMany({
       where: { status: 'PENDING', expiresAt: { lt: new Date() } },
+      include: { waitlistEntry: true },
     });
 
     for (const offer of expired) {
@@ -161,31 +166,16 @@ export class WaitlistService {
         await tx.waitlistEntry.update({ where: { id: offer.waitlistEntryId }, data: { status: 'EXPIRED' } });
       });
 
-      this.logger.log(`Oferta expirada para el espacio ${offer.startsAt.toISOString()}, reasignando`);
-      await this.assignNextForFreedSlot(offer.startsAt, offer.endsAt);
+      this.realtimeGateway.notifyPatient(offer.waitlistEntry.patientId);
+
+      this.logger.log(`Oferta expirada para la cita ${offer.waitlistEntry.watchedAppointmentId}, reasignando`);
+      await this.assignNextForCancelledAppointment(
+        offer.waitlistEntry.watchedAppointmentId,
+        offer.startsAt,
+        offer.endsAt,
+      );
     }
 
     return { expiredCount: expired.length };
   }
-}
-
-function toMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function matchesSlot(
-  entry: { preferredWeekday: number | null; preferredStartMinute: number | null; preferredEndMinute: number | null },
-  slotWeekday: number,
-  slotMinute: number,
-): boolean {
-  if (entry.preferredWeekday !== null && entry.preferredWeekday !== slotWeekday) {
-    return false;
-  }
-  if (entry.preferredStartMinute !== null && entry.preferredEndMinute !== null) {
-    if (slotMinute < entry.preferredStartMinute || slotMinute >= entry.preferredEndMinute) {
-      return false;
-    }
-  }
-  return true;
 }

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { ScheduleService } from '../schedule/schedule.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { BookAppointmentDto } from './dto/appointments.dto';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class AppointmentsService {
     private prisma: PrismaService,
     private waitlistService: WaitlistService,
     private scheduleService: ScheduleService,
+    private realtimeGateway: RealtimeGateway,
   ) {}
 
   async book(patientId: string, dto: BookAppointmentDto) {
@@ -27,11 +29,11 @@ export class AppointmentsService {
     const isValidSlot = freeSlots.some((slot) => slot.startsAt.getTime() === startsAt.getTime());
 
     if (!isValidSlot) {
-      throw new BadRequestException('Ese horario ya no está disponible, puedes unirte a la fila virtual');
+      throw new BadRequestException('Ese horario ya no está disponible');
     }
 
     try {
-      return await this.prisma.$transaction(
+      const appointment = await this.prisma.$transaction(
         async (tx) => {
           const conflict = await tx.appointment.findFirst({
             where: { status: 'SCHEDULED', startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
@@ -46,6 +48,9 @@ export class AppointmentsService {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
+
+      this.realtimeGateway.broadcastAvailabilityUpdate();
+      return appointment;
     } catch (err: any) {
       if (err instanceof BadRequestException) throw err;
       if (err?.code === 'P2034') {
@@ -58,6 +63,18 @@ export class AppointmentsService {
   async listMine(patientId: string) {
     return this.prisma.appointment.findMany({
       where: { patientId },
+      orderBy: { startsAt: 'asc' },
+    });
+  }
+
+  async listBookedForWatching(excludePatientId: string, from: Date, to: Date) {
+    return this.prisma.appointment.findMany({
+      where: {
+        status: 'SCHEDULED',
+        patientId: { not: excludePatientId },
+        startsAt: { gte: from, lte: to },
+      },
+      select: { id: true, startsAt: true, endsAt: true },
       orderBy: { startsAt: 'asc' },
     });
   }
@@ -96,7 +113,9 @@ export class AppointmentsService {
       data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
 
-    await this.waitlistService.assignNextForFreedSlot(startsAt, endsAt);
+    await this.waitlistService.assignNextForCancelledAppointment(appointmentId, startsAt, endsAt);
+
+    this.realtimeGateway.broadcastAvailabilityUpdate();
 
     return cancelled;
   }

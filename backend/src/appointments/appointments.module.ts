@@ -3,9 +3,10 @@ import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
 import { WaitlistModule } from '../waitlist/waitlist.module';
 import { ClinicScheduleModule } from '../schedule/shedule.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
-  imports: [WaitlistModule, ClinicScheduleModule],
+  imports: [WaitlistModule, ClinicScheduleModule, RealtimeModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],
 })
