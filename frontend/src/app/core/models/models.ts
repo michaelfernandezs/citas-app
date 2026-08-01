@@ -4,6 +4,15 @@ export interface User {
   role: 'PATIENT' | 'ADMIN';
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  role: 'PATIENT' | 'ADMIN';
+  createdAt: string;
+}
+
 export interface AuthResponse {
   accessToken: string;
   user: User;
@@ -25,6 +34,7 @@ export interface FreeSlot {
   endsAt: string;
 }
 
+/** Cita ya ocupada (de otro paciente) que se puede "vigilar" en la fila. */
 export interface BookedSlot {
   id: string;
   startsAt: string;

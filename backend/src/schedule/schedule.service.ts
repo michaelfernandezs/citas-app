@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateExceptionDto, CreateWorkingHoursDto, UpdateConfigDto } from './schedule.dto';
+import { CreateExceptionDto, CreateWorkingHoursDto, UpdateConfigDto } from './dto/schedule.dto';
 
 export interface FreeSlot {
   startsAt: Date;
@@ -10,6 +10,8 @@ export interface FreeSlot {
 @Injectable()
 export class ScheduleService {
   constructor(private prisma: PrismaService) {}
+
+  // ---------- Horario recurrente ----------
 
   listWorkingHours() {
     return this.prisma.workingHours.findMany({ orderBy: [{ weekday: 'asc' }, { startMinute: 'asc' }] });
@@ -29,6 +31,8 @@ export class ScheduleService {
     if (!existing) throw new NotFoundException('No existe ese horario');
     return this.prisma.workingHours.delete({ where: { id } });
   }
+
+  // ---------- Excepciones ----------
 
   listExceptions() {
     return this.prisma.scheduleException.findMany({ orderBy: { date: 'asc' } });
@@ -57,17 +61,27 @@ export class ScheduleService {
     return this.prisma.scheduleException.delete({ where: { id } });
   }
 
+  // ---------- Configuración ----------
+
   async getConfig() {
     const existing = await this.prisma.scheduleConfig.findUnique({ where: { id: 'singleton' } });
     if (existing) return existing;
+    // crea la config por defecto si nunca se ha guardado una
     return this.prisma.scheduleConfig.create({ data: { id: 'singleton' } });
   }
 
   async updateConfig(dto: UpdateConfigDto) {
-    await this.getConfig();
+    await this.getConfig(); // asegura que exista la fila
     return this.prisma.scheduleConfig.update({ where: { id: 'singleton' }, data: dto });
   }
 
+  // ---------- Cálculo de disponibilidad ----------
+
+  /**
+   * Calcula los espacios libres entre `from` y `to` combinando:
+   * horario recurrente, excepciones del día, config (duración/buffer/
+   * anticipación mínima/máximo de días), y las citas ya agendadas.
+   */
   async computeAvailability(from: Date, to: Date): Promise<FreeSlot[]> {
     const config = await this.getConfig();
 
@@ -106,7 +120,7 @@ export class ScheduleService {
 
       let ranges: { startMinute: number; endMinute: number }[];
       if (exception) {
-        if (exception.isClosed) continue;
+        if (exception.isClosed) continue; // día cerrado, sin espacios
         ranges = [{ startMinute: exception.startMinute!, endMinute: exception.endMinute! }];
       } else {
         ranges = workingHoursByWeekday.get(day.getDay()) ?? [];
@@ -121,7 +135,9 @@ export class ScheduleService {
           if (startsAt < earliestAllowed) continue;
           if (startsAt < rangeStart || startsAt > rangeEnd) continue;
 
-          const overlaps = existingAppointments.some((a) => startsAt < a.endsAt && endsAt > a.startsAt);
+          const overlaps = existingAppointments.some(
+            (a) => startsAt < a.endsAt && endsAt > a.startsAt,
+          );
           if (overlaps) continue;
 
           slots.push({ startsAt, endsAt });

@@ -15,6 +15,8 @@ export class AppointmentsService {
     private realtimeGateway: RealtimeGateway,
   ) {}
 
+  // ---------- PACIENTE ----------
+
   async book(patientId: string, dto: BookAppointmentDto) {
     const startsAt = new Date(dto.startsAt);
     const config = await this.scheduleService.getConfig();
@@ -67,6 +69,7 @@ export class AppointmentsService {
     });
   }
 
+  /** Citas ya ocupadas por OTROS pacientes, para poder hacer fila por una en particular. */
   async listBookedForWatching(excludePatientId: string, from: Date, to: Date) {
     return this.prisma.appointment.findMany({
       where: {
@@ -90,6 +93,8 @@ export class AppointmentsService {
     return this.cancelInternal(appointment.id, appointment.startsAt, appointment.endsAt);
   }
 
+  // ---------- ADMIN ----------
+
   async listAllForAdmin() {
     return this.prisma.appointment.findMany({
       orderBy: { startsAt: 'asc' },
@@ -107,14 +112,18 @@ export class AppointmentsService {
     return this.cancelInternal(appointment.id, appointment.startsAt, appointment.endsAt);
   }
 
+  // ---------- COMPARTIDO ----------
+
   private async cancelInternal(appointmentId: string, startsAt: Date, endsAt: Date) {
     const cancelled = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
 
+    // Le avisa a quien esté en la fila esperando ESTA cita en particular
     await this.waitlistService.assignNextForCancelledAppointment(appointmentId, startsAt, endsAt);
 
+    // Le avisa a todos los conectados que la disponibilidad cambió
     this.realtimeGateway.broadcastAvailabilityUpdate();
 
     return cancelled;

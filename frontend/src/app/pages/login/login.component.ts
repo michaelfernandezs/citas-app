@@ -42,6 +42,15 @@ export class LoginComponent {
     };
     const onError = (err: any) => {
       this.loading.set(false);
+
+      if (this.mode() === 'register' && err?.status === 409) {
+        // Ya existe una cuenta con ese correo: lo llevamos a login con el correo ya puesto
+        this.mode.set('login');
+        this.error.set('Ya tienes una cuenta con ese correo. Inicia sesión abajo.');
+        this.password = '';
+        return;
+      }
+
       this.error.set(err?.error?.message ?? 'Ocurrió un error, intenta de nuevo');
     };
 

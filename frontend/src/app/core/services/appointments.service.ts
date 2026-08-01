@@ -10,6 +10,7 @@ export class AppointmentsService {
 
   constructor(private http: HttpClient) {}
 
+  // Paciente
   book(startsAt: string): Observable<Appointment> {
     return this.http.post<Appointment>(`${this.base}/book`, { startsAt });
   }
@@ -26,6 +27,7 @@ export class AppointmentsService {
     return this.http.delete<Appointment>(`${this.base}/${id}`);
   }
 
+  // Admin
   listAllForAdmin(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(`${this.base}/admin/all`);
   }

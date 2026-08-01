@@ -17,3 +17,12 @@ export const adminGuard: CanActivateFn = () => {
   router.navigate(['/']);
   return false;
 };
+
+/** Si ya iniciaste sesión, no tiene sentido ver el login otra vez. */
+export const guestGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (!auth.currentUser()) return true;
+  router.navigate([auth.isAdmin() ? '/admin' : '/']);
+  return false;
+};

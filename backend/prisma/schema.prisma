@@ -13,9 +13,9 @@ enum Role {
 }
 
 enum AppointmentStatus {
-  SCHEDULED
-  CANCELLED
-  COMPLETED
+  SCHEDULED // agendada y confirmada
+  CANCELLED // cancelada (historico)
+  COMPLETED // ya se atendio
 }
 
 enum WaitlistStatus {
@@ -47,31 +47,37 @@ model User {
   waitlistEntries WaitlistEntry[]
 }
 
+/// Horario recurrente semanal. Puede haber varias franjas por día
+/// (ej. lunes 9-13 y lunes 15-18 son dos filas separadas).
 model WorkingHours {
   id          String @id @default(uuid())
-  weekday     Int
-  startMinute Int
+  weekday     Int // 0=domingo ... 6=sábado
+  startMinute Int // minutos desde medianoche, ej 9:00 = 540
   endMinute   Int
 
   @@index([weekday])
 }
 
+/// Excepción para una fecha puntual: cierra el día completo, o lo
+/// reemplaza por un horario reducido/especial.
 model ScheduleException {
   id          String   @id @default(uuid())
-  date        DateTime
+  date        DateTime // solo importa la fecha (se normaliza a medianoche UTC)
   isClosed    Boolean  @default(true)
-  startMinute Int?
+  startMinute Int? // si isClosed=false, horario especial de ese día
   endMinute   Int?
 
   @@unique([date])
 }
 
+/// Configuración global del consultorio. Siempre debe existir una sola fila
+/// con id fijo "singleton".
 model ScheduleConfig {
   id                  String @id @default("singleton")
   slotDurationMinutes Int    @default(30)
-  bufferMinutes       Int    @default(0)
-  minNoticeHours      Int    @default(2)
-  maxAdvanceDays      Int    @default(30)
+  bufferMinutes       Int    @default(0) // descanso entre citas
+  minNoticeHours      Int    @default(2) // anticipación mínima para agendar
+  maxAdvanceDays      Int    @default(30) // hasta cuántos días a futuro se puede agendar
 }
 
 model Appointment {
@@ -97,6 +103,8 @@ model WaitlistEntry {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
+  // La cita específica (ya ocupada) que este paciente quiere que le avisen
+  // si se cancela. Ya no hay preferencia de "cualquier horario".
   watchedAppointmentId String
   watchedAppointment   Appointment @relation(fields: [watchedAppointmentId], references: [id])
 
@@ -106,13 +114,16 @@ model WaitlistEntry {
   @@index([watchedAppointmentId, status])
 }
 
+/// Un espacio liberado (por cancelación) ofrecido a alguien de la fila.
+/// Ya no reutiliza filas de Appointment porque los espacios libres no
+/// existen como filas — solo se calculan.
 model Offer {
-  id              String        @id @default(uuid())
-  waitlistEntryId String        @unique
+  id              String      @id @default(uuid())
+  waitlistEntryId String      @unique
   waitlistEntry   WaitlistEntry @relation(fields: [waitlistEntryId], references: [id])
   startsAt        DateTime
   endsAt          DateTime
   expiresAt       DateTime
-  status          OfferStatus   @default(PENDING)
-  createdAt       DateTime      @default(now())
+  status          OfferStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
 }

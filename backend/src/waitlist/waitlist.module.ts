@@ -3,6 +3,7 @@ import { WaitlistService } from './waitlist.service';
 import { WaitlistController } from './waitlist.controller';
 import { WaitlistCron } from './waitlist.cron';
 import { RealtimeModule } from '../realtime/realtime.module';
+
 @Module({
   imports: [RealtimeModule],
   controllers: [WaitlistController],

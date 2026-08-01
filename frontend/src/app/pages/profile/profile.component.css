@@ -1,0 +1,99 @@
+.page {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 24px 18px 60px;
+}
+
+header {
+  margin-bottom: 20px;
+}
+
+.ghost-btn {
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-size: 13px;
+  padding: 8px 14px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+.card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--pine);
+  color: var(--paper-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+
+.role-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+}
+
+.field {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.field:last-of-type {
+  border-bottom: none;
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.logout-btn {
+  margin-top: 24px;
+  width: 100%;
+}
+
+.loading,
+.empty {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}

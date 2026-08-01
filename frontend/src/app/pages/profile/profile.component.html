@@ -1,0 +1,34 @@
+<div class="page">
+  <header>
+    <button class="ghost-btn" (click)="goBack()">← Volver</button>
+  </header>
+
+  @if (loading()) {
+    <p class="loading">Cargando…</p>
+  } @else if (profile()) {
+    <div class="card">
+      <div class="avatar">{{ profile()!.name.charAt(0).toUpperCase() }}</div>
+      <h1>{{ profile()!.name }}</h1>
+      <span class="role-badge">{{ profile()!.role === 'ADMIN' ? 'Administrador' : 'Paciente' }}</span>
+
+      <div class="field">
+        <span class="field-label">Correo</span>
+        <span class="field-value">{{ profile()!.email }}</span>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Teléfono</span>
+        <span class="field-value">{{ profile()!.phone || 'No registrado' }}</span>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Miembro desde</span>
+        <span class="field-value">{{ memberSince(profile()!.createdAt) }}</span>
+      </div>
+
+      <button class="ghost-btn logout-btn" (click)="logout()">Cerrar sesión</button>
+    </div>
+  } @else {
+    <p class="empty">No se pudo cargar tu perfil.</p>
+  }
+</div>

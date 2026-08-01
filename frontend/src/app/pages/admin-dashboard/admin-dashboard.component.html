@@ -4,7 +4,10 @@
       <span class="brand-mark">+</span>
       <span class="brand-name">Panel del consultorio</span>
     </div>
-    <button class="ghost-btn" (click)="logout()">Cerrar sesión</button>
+    <div class="header-actions">
+      <a routerLink="/profile" class="ghost-btn">Mi perfil</a>
+      <button class="ghost-btn" (click)="logout()">Cerrar sesión</button>
+    </div>
   </header>
 
   <div class="stats">
@@ -25,6 +28,7 @@
     <p class="success">{{ actionMessage() }}</p>
   }
 
+  <!-- Horario recurrente -->
   <section class="card">
     <h2>Horario de trabajo</h2>
 
@@ -61,6 +65,7 @@
     <button class="primary-btn" (click)="addWorkingHours()">Agregar franja de horario</button>
   </section>
 
+  <!-- Excepciones -->
   <section class="card">
     <h2>Excepciones (vacaciones, festivos, horario reducido)</h2>
 
@@ -108,6 +113,7 @@
     <button class="primary-btn" (click)="addException()">Guardar excepción</button>
   </section>
 
+  <!-- Configuración -->
   <section class="card">
     <h2>Configuración</h2>
     <div class="form-row">
@@ -133,6 +139,7 @@
     <button class="primary-btn" (click)="saveConfig()">Guardar configuración</button>
   </section>
 
+  <!-- Citas -->
   <section class="card">
     <h2>Todas las citas</h2>
     @if (loading()) {

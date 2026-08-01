@@ -5,7 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
-import { ClinicScheduleModule } from './schedule/shedule.module';
+import { ClinicScheduleModule } from './schedule/schedule.module';
 
 @Module({
   imports: [

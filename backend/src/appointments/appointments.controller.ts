@@ -11,6 +11,8 @@ import { BookAppointmentDto } from './dto/appointments.dto';
 export class AppointmentsController {
   constructor(private appointmentsService: AppointmentsService) {}
 
+  // ----- Paciente -----
+
   @Post('book')
   book(@CurrentUser() user: CurrentUserPayload, @Body() dto: BookAppointmentDto) {
     return this.appointmentsService.book(user.userId, dto);
@@ -33,6 +35,8 @@ export class AppointmentsController {
   cancel(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.appointmentsService.cancelAsPatient(user.userId, id);
   }
+
+  // ----- Admin -----
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN')

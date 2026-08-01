@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, User } from '../models/models';
+import { AuthResponse, User, UserProfile } from '../models/models';
 
 const TOKEN_KEY = 'citas_token';
 const USER_KEY = 'citas_user';
@@ -42,6 +42,10 @@ export class AuthService {
 
   isAdmin(): boolean {
     return this.currentUser()?.role === 'ADMIN';
+  }
+
+  getProfile(): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${environment.apiUrl}/auth/me`);
   }
 
   private persistSession(res: AuthResponse) {

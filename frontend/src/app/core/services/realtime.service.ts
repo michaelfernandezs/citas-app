@@ -11,12 +11,15 @@ export class RealtimeService {
 
   constructor(private auth: AuthService) {}
 
+  /** Abre la conexión de WebSocket usando el mismo token de la sesión. */
   connect() {
     const token = this.auth.getToken();
     if (!token || this.socket) return;
 
     this.socket = io(environment.apiUrl, { auth: { token } });
 
+    // Ambos avisos (oferta personal, o disponibilidad general) disparan lo mismo:
+    // "algo cambió, vuelve a pedir tus datos".
     this.socket.on('waitlist:update', () => this.update$.next());
     this.socket.on('availability:update', () => this.update$.next());
   }

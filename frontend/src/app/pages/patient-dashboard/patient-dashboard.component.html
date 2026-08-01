@@ -4,7 +4,10 @@
       <span class="brand-mark">+</span>
       <span class="brand-name">Consultorio</span>
     </div>
-    <button class="ghost-btn" (click)="logout()">Cerrar sesión</button>
+    <div class="header-actions">
+      <a routerLink="/profile" class="ghost-btn">Mi perfil</a>
+      <button class="ghost-btn" (click)="logout()">Cerrar sesión</button>
+    </div>
   </header>
 
   @if (actionError()) {

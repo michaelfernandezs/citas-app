@@ -10,12 +10,10 @@ export class ScheduleService {
 
   constructor(private http: HttpClient) {}
 
-  // Cualquier usuario logueado
   getAvailability(from: string, to: string): Observable<FreeSlot[]> {
     return this.http.get<FreeSlot[]>(`${this.base}/availability`, { params: { from, to } });
   }
 
-  // Admin: horario recurrente
   listWorkingHours(): Observable<WorkingHours[]> {
     return this.http.get<WorkingHours[]>(`${this.base}/working-hours`);
   }
@@ -28,7 +26,6 @@ export class ScheduleService {
     return this.http.delete(`${this.base}/working-hours/${id}`);
   }
 
-  // Admin: excepciones
   listExceptions(): Observable<ScheduleException[]> {
     return this.http.get<ScheduleException[]>(`${this.base}/exceptions`);
   }
@@ -46,7 +43,6 @@ export class ScheduleService {
     return this.http.delete(`${this.base}/exceptions/${id}`);
   }
 
-  // Admin: configuración
   getConfig(): Observable<ScheduleConfig> {
     return this.http.get<ScheduleConfig>(`${this.base}/config`);
   }

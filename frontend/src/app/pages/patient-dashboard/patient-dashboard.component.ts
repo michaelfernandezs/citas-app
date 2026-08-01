@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AppointmentsService } from '../../core/services/appointments.service';
 import { WaitlistService } from '../../core/services/waitlist.service';
@@ -16,7 +17,7 @@ const DAYS_AHEAD_TO_SHOW = 14;
 @Component({
   selector: 'app-patient-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, TicketComponent, WeekCalendarComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TicketComponent, WeekCalendarComponent],
   templateUrl: './patient-dashboard.component.html',
   styleUrl: './patient-dashboard.component.css',
 })

@@ -13,10 +13,14 @@ export class RealtimeGateway implements OnGatewayConnection {
 
   private readonly logger = new Logger(RealtimeGateway.name);
 
-  constructor(private jwtService: JwtService) {
+  constructor(private jwtService: JwtService) {}
 
-  }
-
+  /**
+   * Se ejecuta cada vez que un navegador abre la conexión de WebSocket.
+   * Verificamos su token (el mismo JWT que usa para las peticiones normales)
+   * y lo metemos a una "sala" (room) identificada por su patientId, para
+   * poder avisarle solo a él más adelante.
+   */
   handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth?.['token'] as string | undefined;
@@ -36,16 +40,13 @@ export class RealtimeGateway implements OnGatewayConnection {
     }
   }
 
+  /** Le avisa a un paciente específico que algo relevante cambió (debe refrescar). */
   notifyPatient(patientId: string) {
     this.server.to(`patient:${patientId}`).emit('waitlist:update');
-    
   }
+
   /** Avisa a TODOS los conectados que la disponibilidad cambió (se agendó o liberó algo). */
   broadcastAvailabilityUpdate() {
     this.server.emit('availability:update');
   }
-
-
-  /** Avisa a TODOS los conectados que la disponibilidad cambió (se agendó o liberó algo). */
- 
 }

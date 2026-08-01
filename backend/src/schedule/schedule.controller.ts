@@ -3,12 +3,14 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ScheduleService } from './schedule.service';
-import { CreateExceptionDto, CreateWorkingHoursDto, UpdateConfigDto } from './schedule.dto';
+import { CreateExceptionDto, CreateWorkingHoursDto, UpdateConfigDto } from './dto/schedule.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('schedule')
 export class ScheduleController {
   constructor(private scheduleService: ScheduleService) {}
+
+  // ----- Disponibilidad calculada (cualquier usuario logueado) -----
 
   @Get('availability')
   async availability(@Query('from') from: string, @Query('to') to: string) {
@@ -17,6 +19,8 @@ export class ScheduleController {
     }
     return this.scheduleService.computeAvailability(new Date(from), new Date(to));
   }
+
+  // ----- Horario recurrente (admin) -----
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
@@ -39,6 +43,8 @@ export class ScheduleController {
     return this.scheduleService.deleteWorkingHours(id);
   }
 
+  // ----- Excepciones (admin) -----
+
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   @Get('exceptions')
@@ -59,6 +65,8 @@ export class ScheduleController {
   deleteException(@Param('id') id: string) {
     return this.scheduleService.deleteException(id);
   }
+
+  // ----- Configuración (admin) -----
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
