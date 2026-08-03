@@ -17,6 +17,7 @@ export class EmailService {
     }
   }
 
+  /** Avisa por correo que se liberó la cita que el paciente estaba esperando. */
   async sendOfferEmail(to: string, startsAt: Date, expiresAt: Date) {
     const dateLabel = startsAt.toLocaleString('es-MX', {
       weekday: 'long',
@@ -43,13 +44,18 @@ export class EmailService {
     }
 
     try {
-      await this.resend.emails.send({
+      const result = await this.resend.emails.send({
         from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
         to,
         subject,
         html,
       });
-      this.logger.log(`Email enviado a ${to}`);
+
+      if (result.error) {
+        this.logger.error(`Resend rechazó el email a ${to}: ${JSON.stringify(result.error)}`);
+      } else {
+        this.logger.log(`Email enviado a ${to} (id: ${result.data?.id})`);
+      }
     } catch (err) {
       this.logger.error(`Error enviando email a ${to}`, err as Error);
     }
