@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { PrismaService } from '../prisma/prisma.service';
 import { JoinWaitlistDto } from './dto/waitlist.dto';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { EmailService } from '../email/email.service';
 
 const OFFER_WINDOW_HOURS = 3;
 
@@ -12,9 +13,9 @@ export class WaitlistService {
   constructor(
     private prisma: PrismaService,
     private realtimeGateway: RealtimeGateway,
+    private emailService: EmailService,
   ) {}
 
-  /** El paciente pide que le avisen si una cita específica (ya ocupada) se libera. */
   async join(patientId: string, dto: JoinWaitlistDto) {
     const active = await this.prisma.waitlistEntry.findFirst({
       where: { patientId, status: { in: ['WAITING', 'OFFERED'] } },
@@ -59,7 +60,6 @@ export class WaitlistService {
     if (!entry) return { inQueue: false };
 
     if (entry.status === 'WAITING') {
-      // Posición entre quienes esperan esa MISMA cita (no la fila global)
       const position = await this.prisma.waitlistEntry.count({
         where: {
           status: 'WAITING',
@@ -73,16 +73,12 @@ export class WaitlistService {
     return { inQueue: true, status: 'OFFERED', entry, offer: entry.offer };
   }
 
-  /**
-   * Se llama cuando una cita específica se cancela. Busca al siguiente
-   * paciente que estaba esperando ESA cita en particular (FIFO) y le
-   * crea una oferta.
-   */
   async assignNextForCancelledAppointment(appointmentId: string, startsAt: Date, endsAt: Date) {
     const result = await this.prisma.$transaction(async (tx) => {
       const nextCandidate = await tx.waitlistEntry.findFirst({
         where: { status: 'WAITING', watchedAppointmentId: appointmentId },
         orderBy: { createdAt: 'asc' },
+        include: { patient: true },
       });
 
       if (!nextCandidate) {
@@ -105,11 +101,12 @@ export class WaitlistService {
         `Cita ${appointmentId} ofrecida a paciente ${nextCandidate.patientId}, expira ${expiresAt.toISOString()}`,
       );
 
-      return { offer, patientId: nextCandidate.patientId };
+      return { offer, patientId: nextCandidate.patientId, patientEmail: nextCandidate.patient.email };
     });
 
     if (result) {
       this.realtimeGateway.notifyPatient(result.patientId);
+      await this.emailService.sendOfferEmail(result.patientEmail, result.offer.startsAt, result.offer.expiresAt);
     }
 
     return result?.offer ?? null;
@@ -161,7 +158,6 @@ export class WaitlistService {
     });
   }
 
-  /** Revisa ofertas vencidas, las libera, avisa a quien la perdió, y reasigna. */
   async expireOverdueOffers() {
     const expired = await this.prisma.offer.findMany({
       where: { status: 'PENDING', expiresAt: { lt: new Date() } },
