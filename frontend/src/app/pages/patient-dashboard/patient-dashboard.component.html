@@ -64,7 +64,9 @@
 
     <section class="section">
       <h2 class="section-title">Espacios disponibles</h2>
-      @if (openSlots().length === 0) {
+      @if (hasScheduled()) {
+        <p class="empty">Ya tienes una cita confirmada. Cancélala si necesitas elegir otro horario.</p>
+      } @else if (openSlots().length === 0) {
         <p class="empty">No hay espacios abiertos por ahora.</p>
       } @else {
         <app-week-calendar [slots]="openSlots()" (book)="book($event)"></app-week-calendar>

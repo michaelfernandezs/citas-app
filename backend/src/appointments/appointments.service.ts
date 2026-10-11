@@ -37,6 +37,13 @@ export class AppointmentsService {
     try {
       const appointment = await this.prisma.$transaction(
         async (tx) => {
+          const patientAppointment = await tx.appointment.findFirst({
+            where: { patientId, status: 'SCHEDULED' },
+          });
+          if (patientAppointment) {
+            throw new BadRequestException('Solo puedes tener una cita confirmada a la vez');
+          }
+
           const conflict = await tx.appointment.findFirst({
             where: { status: 'SCHEDULED', startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
           });
