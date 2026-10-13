@@ -78,6 +78,10 @@ export class AdminDashboardComponent implements OnInit {
     return this.weekdays.find((w) => w.value === value)?.label ?? '';
   }
 
+  hasWorkingHoursForDay(weekday: number): boolean {
+    return this.workingHours().some((workingHour) => workingHour.weekday === weekday);
+  }
+
   minutesToLabel(minutes: number): string {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
@@ -87,6 +91,10 @@ export class AdminDashboardComponent implements OnInit {
   addWorkingHours() {
     this.actionError.set(null);
     this.actionMessage.set(null);
+    if (this.hasWorkingHoursForDay(this.newWeekday)) {
+      this.actionError.set('Ese día ya tiene un horario de atención. Elimínalo si quieres reemplazarlo.');
+      return;
+    }
     this.scheduleService
       .createWorkingHours({ weekday: this.newWeekday, startTime: this.newStartTime, endTime: this.newEndTime })
       .subscribe({

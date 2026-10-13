@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExceptionDto, CreateWorkingHoursDto, UpdateConfigDto } from './dto/schedule.dto';
 
@@ -23,7 +23,20 @@ export class ScheduleService {
     if (startMinute >= endMinute) {
       throw new BadRequestException('startTime debe ser antes que endTime');
     }
-    return this.prisma.workingHours.create({ data: { weekday: dto.weekday, startMinute, endMinute } });
+    const existing = await this.prisma.workingHours.findFirst({ where: { weekday: dto.weekday } });
+    if (existing) {
+      throw new ConflictException('Ya existe un horario de atención para ese día');
+    }
+    try {
+      return await this.prisma.workingHours.create({
+        data: { weekday: dto.weekday, startMinute, endMinute },
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new ConflictException('Ya existe un horario de atención para ese día');
+      }
+      throw error;
+    }
   }
 
   async deleteWorkingHours(id: string) {
@@ -113,6 +126,7 @@ export class ScheduleService {
     const exceptionByDateKey = new Map(exceptions.map((e) => [dateKey(e.date), e]));
 
     const slots: FreeSlot[] = [];
+    const slotKeys = new Set<string>();
     const stepMinutes = config.slotDurationMinutes + config.bufferMinutes;
 
     for (const day = new Date(normalizeDate(rangeStart)); day <= rangeEnd; day.setDate(day.getDate() + 1)) {
@@ -140,7 +154,11 @@ export class ScheduleService {
           );
           if (overlaps) continue;
 
-          slots.push({ startsAt, endsAt });
+          const slotKey = startsAt.toISOString();
+          if (!slotKeys.has(slotKey)) {
+            slotKeys.add(slotKey);
+            slots.push({ startsAt, endsAt });
+          }
         }
       }
     }

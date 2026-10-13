@@ -56,6 +56,7 @@ model WorkingHours {
   endMinute   Int
 
   @@index([weekday])
+  @@unique([weekday])
 }
 
 /// Excepción para una fecha puntual: cierra el día completo, o lo

@@ -17,7 +17,7 @@
     </div>
     <div class="stat">
       <span class="stat-value">{{ workingHours().length }}</span>
-      <span class="stat-label">Franjas de horario</span>
+      <span class="stat-label">Días con horario</span>
     </div>
   </div>
 
@@ -30,7 +30,7 @@
 
   <!-- Horario recurrente -->
   <section class="card">
-    <h2>Horario de trabajo</h2>
+    <h2>Horario de atención</h2>
 
     @if (workingHours().length === 0) {
       <p class="empty">Todavía no has configurado ningún horario.</p>
@@ -62,7 +62,7 @@
         <input type="time" [(ngModel)]="newEndTime" name="newEndTime" />
       </label>
     </div>
-    <button class="primary-btn" (click)="addWorkingHours()">Agregar franja de horario</button>
+    <button class="primary-btn" (click)="addWorkingHours()">Agregar horario de atención</button>
   </section>
 
   <!-- Excepciones -->
