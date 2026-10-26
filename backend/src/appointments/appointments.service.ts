@@ -69,6 +69,46 @@ export class AppointmentsService {
     }
   }
 
+  async reschedule(patientId: string, appointmentId: string, dto: BookAppointmentDto) {
+    const startsAt = new Date(dto.startsAt);
+    const dayStart = new Date(startsAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(startsAt);
+    dayEnd.setHours(23, 59, 59, 999);
+    const slots = await this.scheduleService.computeAvailability(dayStart, dayEnd);
+    const slot = slots.find((s) => s.startsAt.getTime() === startsAt.getTime());
+    if (!slot) throw new BadRequestException('Ese horario ya no está disponible');
+    let result;
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        const original = await tx.appointment.findUnique({ where: { id: appointmentId } });
+        if (!original) throw new NotFoundException('La cita no existe');
+        if (original.patientId !== patientId) throw new ForbiddenException('No es tu cita');
+        if (original.status !== 'SCHEDULED' || original.startsAt <= new Date()) {
+          throw new BadRequestException('Solo puedes reprogramar citas confirmadas futuras');
+        }
+        const conflict = await tx.appointment.findFirst({
+          where: { status: 'SCHEDULED', startsAt: { lt: slot.endsAt }, endsAt: { gt: startsAt } },
+        });
+        if (conflict) throw new BadRequestException('Ese horario se acaba de ocupar, elige otro');
+        await tx.appointment.update({ where: { id: appointmentId }, data: { status: 'CANCELLED', cancelledAt: new Date() } });
+        const appointment = await tx.appointment.create({ data: { patientId, startsAt, endsAt: slot.endsAt } });
+        return { original, appointment };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error: any) {
+      if (error?.code === 'P2034') throw new BadRequestException('La agenda cambió. Intenta de nuevo; tu cita anterior se conserva.');
+      throw error;
+    }
+    // El cambio ya quedó confirmado; un fallo en los avisos no debe reportarlo como fallido.
+    try {
+      await this.waitlistService.assignNextForCancelledAppointment(appointmentId, result.original.startsAt, result.original.endsAt);
+    } catch (error) {
+      console.error('No se pudo avisar a la fila tras reprogramar', error);
+    }
+    this.realtimeGateway.broadcastAvailabilityUpdate();
+    return result.appointment;
+  }
+
   async listMine(patientId: string) {
     return this.prisma.appointment.findMany({
       where: { patientId },

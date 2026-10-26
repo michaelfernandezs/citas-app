@@ -15,6 +15,10 @@ export class AppointmentsService {
     return this.http.post<Appointment>(`${this.base}/book`, { startsAt });
   }
 
+  reschedule(id: string, startsAt: string): Observable<Appointment> {
+    return this.http.post<Appointment>(`${this.base}/${id}/reschedule`, { startsAt });
+  }
+
   listMine(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(`${this.base}/mine`);
   }

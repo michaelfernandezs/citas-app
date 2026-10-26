@@ -29,6 +29,14 @@ export class AuthService {
       .pipe(tap((res) => this.persistSession(res)));
   }
 
+  forgotPassword(email: string) {
+    return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, password: string) {
+    return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/reset-password`, { token, password });
+  }
+
   logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

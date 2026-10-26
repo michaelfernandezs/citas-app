@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard, adminGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
+  { path: 'recuperar-contrasena', loadComponent: () => import('./pages/password-reset/password-reset.component').then(m => m.PasswordResetComponent) },
   {
     path: 'login',
     canActivate: [guestGuard],

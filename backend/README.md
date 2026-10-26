@@ -67,3 +67,40 @@ Todas las rutas de abajo requieren header `Authorization: Bearer <accessToken>`.
 - **Ventana de oferta**: 3 horas, definida en `src/waitlist/waitlist.service.ts` (constante `OFFER_WINDOW_HOURS`).
 - **Notificaciones**: por ahora solo se loggea cuando se ofrece un espacio (ver `TODO` en `waitlist.service.ts`). Falta conectar un proveedor de email (Resend/Nodemailer) — se puede agregar después sin tocar la lógica de negocio.
 - **Si escalas a más de una instancia** del backend, el cron podría duplicarse. La lógica ya usa transacciones (`$transaction`) para evitar asignar el mismo espacio dos veces, pero si esto crece te conviene mover el cron a un servicio aparte o usar un lock distribuido.
+
+## Recuperación de contraseña y reprogramación
+
+Aplica la migración antes de arrancar el backend actualizado:
+
+```bash
+npm run prisma:generate
+npm run prisma:deploy
+```
+
+En el backend configura `FRONTEND_URL` con el origen de tu frontend (por ejemplo,
+`http://localhost:4200`). Los enlaces de recuperación vencen a los 30 minutos,
+solo funcionan una vez y se guardan como hash en la base de datos.
+
+Para probar **localmente sin servicio de correo**, agrega a `backend/.env`:
+
+```dotenv
+NODE_ENV=development
+PASSWORD_RESET_LOG_LINK=true
+FRONTEND_URL=http://localhost:4200
+```
+
+Reinicia el backend, entra a «Olvidé mi contraseña», introduce el correo de una
+cuenta existente y abre el enlace `[RECUPERACIÓN LOCAL]` de la consola del
+backend. Este enlace permite cambiar la contraseña: no lo compartas.
+La aplicación nunca devuelve el enlace por la API.
+
+Para enviar correos reales configura `RESEND_API_KEY`, `EMAIL_FROM` con un
+remitente autorizado y `FRONTEND_URL` con la dirección pública. Desactiva
+`PASSWORD_RESET_LOG_LINK` en el despliegue. Sin proveedor de correo, los usuarios
+no recibirán el enlace; la respuesta pública es la misma exista o no la cuenta.
+Cambiar la contraseña no cierra las sesiones que ya estaban abiertas.
+
+Para reprogramar, el paciente pulsa «Reprogramar», elige un horario del calendario
+y confirma. El cambio conserva la cita original hasta asegurar la nueva reserva,
+registra la anterior como cancelada y activa la fila que esperaba ese espacio.
+La reprogramación funciona sin correo; los avisos en tiempo real siguen activos.

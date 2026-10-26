@@ -37,6 +37,8 @@ enum OfferStatus {
 model User {
   id              String          @id @default(uuid())
   email           String          @unique
+  resetTokenHash String? @unique
+  resetTokenExpiresAt DateTime?
   passwordHash    String
   name            String
   phone           String?

@@ -10,6 +10,8 @@
     </div>
   </header>
 
+  @if (success()) { <p role="status">{{ success() }}</p> }
+
   @if (actionError()) {
     <p class="error">{{ actionError() }}</p>
   }
@@ -55,7 +57,8 @@
         @for (a of myAppointments(); track a.id) {
           @if (a.status === 'SCHEDULED') {
             <app-ticket eyebrow="Confirmada" [value]="hourLabel(a.startsAt)" [meta]="dayLabel(a.startsAt)">
-              <button class="ghost-btn" (click)="cancel(a.id)">Cancelar</button>
+              <button class="ghost-btn" [disabled]="saving()" (click)="startReschedule(a.id)">Reprogramar</button>
+              <button class="ghost-btn" [disabled]="saving()" (click)="cancel(a.id)">Cancelar</button>
             </app-ticket>
           }
         }
@@ -64,8 +67,19 @@
 
     <section class="section">
       <h2 class="section-title">Espacios disponibles</h2>
-      @if (hasScheduled()) {
-        <p class="empty">Ya tienes una cita confirmada. Cancélala si necesitas elegir otro horario.</p>
+      @if (reschedulingId()) {
+        <p>Elige un nuevo horario. Tu cita actual se conserva hasta confirmar el cambio.</p>
+        <button class="ghost-btn" [disabled]="saving()" (click)="stopReschedule()">Conservar mi cita</button>
+        @if (selectedSlot()) {
+          <p>Nuevo horario: {{ dayLabel(selectedSlot()!) }}, {{ hourLabel(selectedSlot()!) }}</p>
+          <button class="primary-btn" [disabled]="saving()" (click)="confirmReschedule()">{{ saving() ? 'Guardando…' : 'Confirmar cambio' }}</button>
+        }
+        @if (!saving()) {
+          <app-week-calendar [slots]="openSlots()" (book)="chooseSlot($event)"></app-week-calendar>
+          @if (openSlots().length === 0) { <p class="empty">No hay espacios disponibles en los próximos 14 días.</p> }
+        }
+      } @else if (hasScheduled()) {
+        <p class="empty">Puedes cambiar de horario con el botón Reprogramar de tu cita.</p>
       } @else if (openSlots().length === 0) {
         <p class="empty">No hay espacios abiertos por ahora.</p>
       } @else {

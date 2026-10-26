@@ -31,6 +31,11 @@ export class AppointmentsController {
     return this.appointmentsService.listBookedForWatching(user.userId, new Date(from), new Date(to));
   }
 
+  @Post(':id/reschedule')
+  reschedule(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string, @Body() dto: BookAppointmentDto) {
+    return this.appointmentsService.reschedule(user.userId, id, dto);
+  }
+
   @Delete(':id')
   cancel(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.appointmentsService.cancelAsPatient(user.userId, id);

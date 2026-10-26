@@ -17,6 +17,31 @@ export class EmailService {
     }
   }
 
+  async sendPasswordResetEmail(to: string, token: string) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+    const url = new URL('/recuperar-contrasena', frontendUrl);
+    url.searchParams.set('token', token);
+    if (!this.resend) {
+      if (process.env.NODE_ENV === 'development' && process.env.PASSWORD_RESET_LOG_LINK === 'true') {
+        this.logger.log(`[RECUPERACIÓN LOCAL] ${url.toString()}`);
+      } else {
+        this.logger.warn('Recuperación solicitada, pero el servicio de correo no está configurado.');
+      }
+      return;
+    }
+    try {
+      const result = await this.resend.emails.send({
+        from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+        to,
+        subject: 'Recupera tu contraseña',
+        html: `<p>Solicitaste cambiar tu contraseña.</p><p><a href="${url.toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">Crear nueva contraseña</a></p><p>Este enlace vence en 30 minutos y solo puede usarse una vez. Si no lo solicitaste, ignora este correo.</p>`,
+      });
+      if (result.error) this.logger.error('No se pudo enviar el correo de recuperación');
+    } catch {
+      this.logger.error('No se pudo enviar el correo de recuperación');
+    }
+  }
+
   /** Avisa por correo que se liberó la cita que el paciente estaba esperando. */
   async sendOfferEmail(to: string, startsAt: Date, expiresAt: Date) {
     const dateLabel = startsAt.toLocaleString('es-MX', {

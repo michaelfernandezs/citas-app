@@ -29,6 +29,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   loading = signal(true);
   actionError = signal<string | null>(null);
 
+  reschedulingId = signal<string | null>(null);
+  selectedSlot = signal<string | null>(null);
+  saving = signal(false);
+  success = signal<string | null>(null);
+
   private realtimeSub?: Subscription;
 
   constructor(
@@ -72,6 +77,44 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  chooseSlot(startsAt: string) {
+    if (this.reschedulingId()) this.selectedSlot.set(startsAt);
+    else this.book(startsAt);
+  }
+
+  startReschedule(id: string) {
+    this.reschedulingId.set(id);
+    this.selectedSlot.set(null);
+    this.actionError.set(null);
+    this.success.set(null);
+  }
+
+  stopReschedule() {
+    this.reschedulingId.set(null);
+    this.selectedSlot.set(null);
+  }
+
+  confirmReschedule() {
+    const id = this.reschedulingId();
+    const startsAt = this.selectedSlot();
+    if (!id || !startsAt || this.saving()) return;
+    this.saving.set(true);
+    this.actionError.set(null);
+    this.appointmentsService.reschedule(id, startsAt).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.stopReschedule();
+        this.success.set('Tu cita se reprogramó correctamente.');
+        this.refreshAll();
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.actionError.set(err?.error?.message ?? 'No se pudo reprogramar. Revisa tu cita e intenta de nuevo.');
+        this.refreshAll();
+      },
     });
   }
 
