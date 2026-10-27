@@ -1,11 +1,13 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { Subject } from 'rxjs';
+import { Subject, Subscription, interval } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { backend } from '../../../environments/backend';
 import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
+  private polling?: Subscription;
   private socket: Socket | null = null;
   private update$ = new Subject<void>();
 
@@ -13,6 +15,10 @@ export class RealtimeService {
 
   /** Abre la conexión de WebSocket usando el mismo token de la sesión. */
   connect() {
+    if (backend.provider === 'supabase') {
+      this.polling ??= interval(15000).subscribe(() => this.update$.next());
+      return;
+    }
     const token = this.auth.getToken();
     if (!token || this.socket) return;
 
@@ -25,6 +31,8 @@ export class RealtimeService {
   }
 
   disconnect() {
+    this.polling?.unsubscribe();
+    this.polling = undefined;
     this.socket?.disconnect();
     this.socket = null;
   }

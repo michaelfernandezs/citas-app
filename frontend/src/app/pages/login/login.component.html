@@ -10,6 +10,8 @@
       {{ mode() === 'login' ? 'Para agendar o ver tu turno en la fila.' : 'Para poder agendar tu próxima cita.' }}
     </p>
 
+    @if (message()) { <p role="status">{{ message() }}</p> }
+
     <form (ngSubmit)="submit()">
       @if (mode() === 'register') {
         <label>

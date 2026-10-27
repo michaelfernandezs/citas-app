@@ -19,7 +19,7 @@ export class PasswordResetComponent {
   error = signal('');
   done = signal(false);
   constructor(private auth: AuthService, route: ActivatedRoute) {
-    this.token = route.snapshot.queryParamMap.get('token') ?? '';
+    this.token = route.snapshot.queryParamMap.get('token_hash') ?? route.snapshot.queryParamMap.get('token') ?? '';
   }
   submit() {
     if (this.loading() || this.done()) return;

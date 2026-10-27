@@ -63,3 +63,7 @@ git push
 ```
 
 Railway y Vercel/Netlify detectan el push automáticamente y redeployan solo el servicio cuya carpeta cambió (o ambos, si tocaste los dos). No necesitas hacer nada manual además del push.
+
+## Backend con Supabase
+
+Para ejecutar la app sin un servidor NestJS alojado, consulta la [guía de migración a Supabase](supabase/README.md). Incluye SQL, autenticación, tareas programadas, correos y configuración del frontend. El proveedor sigue en `nest` hasta configurar y validar el proyecto Supabase.

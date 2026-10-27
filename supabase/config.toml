@@ -1,0 +1,5 @@
+project_id = "citas-app"
+
+[functions.send-offer-emails]
+# El cron usa un secreto propio. El handler comprueba x-worker-secret.
+verify_jwt = false

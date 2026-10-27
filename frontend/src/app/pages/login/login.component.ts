@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { AuthResponse } from '../../core/models/models';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -14,6 +15,7 @@ import { AuthService } from '../../core/services/auth.service';
 export class LoginComponent {
   mode = signal<'login' | 'register'>('login');
   loading = signal(false);
+  message = signal('');
   error = signal<string | null>(null);
 
   email = '';
@@ -29,14 +31,22 @@ export class LoginComponent {
   toggleMode() {
     this.mode.set(this.mode() === 'login' ? 'register' : 'login');
     this.error.set(null);
+    this.message.set('');
   }
 
   submit() {
     this.loading.set(true);
     this.error.set(null);
+    this.message.set('');
 
-    const onSuccess = () => {
+    const onSuccess = (result: AuthResponse | null) => {
       this.loading.set(false);
+      if (!result) {
+        this.mode.set('login');
+        this.password = '';
+        this.message.set('Revisa tu correo para confirmar tu cuenta. Después podrás iniciar sesión.');
+        return;
+      }
       const isAdmin = this.auth.isAdmin();
       this.router.navigate([isAdmin ? '/admin' : '/']);
     };
