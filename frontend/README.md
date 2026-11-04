@@ -17,7 +17,8 @@ Angular 18 (standalone components, signals).
 
 ## Pantallas incluidas
 
-- `/login` — login y registro (todo registro público crea un paciente)
+- `/login` — acceso y registro de pacientes (todo registro público crea un paciente)
+- `/admin/login` — acceso exclusivo para cuentas con rol administrador
 - `/` — dashboard del paciente: espacios abiertos, mis citas, unirse/salir de la fila, aceptar/rechazar ofertas
 - `/admin` — panel del doctor/staff (requiere usuario con rol ADMIN, creado por el seed del backend): crear espacios sueltos o recurrentes, ver todas las citas, cancelar
 

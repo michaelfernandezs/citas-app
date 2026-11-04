@@ -13,6 +13,7 @@ import { AuthService } from '../../core/services/auth.service';
   styleUrl: './login.component.css',
 })
 export class LoginComponent {
+  readonly adminLogin: boolean;
   mode = signal<'login' | 'register'>('login');
   loading = signal(false);
   message = signal('');
@@ -26,7 +27,9 @@ export class LoginComponent {
   constructor(
     private auth: AuthService,
     private router: Router,
-  ) {}
+  ) {
+    this.adminLogin = this.router.url.startsWith('/admin/login');
+  }
 
   toggleMode() {
     this.mode.set(this.mode() === 'login' ? 'register' : 'login');
@@ -61,11 +64,11 @@ export class LoginComponent {
         return;
       }
 
-      this.error.set(err?.error?.message ?? 'Ocurrió un error, intenta de nuevo');
+      this.error.set(err?.error?.message ?? err?.message ?? 'Ocurrió un error, intenta de nuevo');
     };
 
     if (this.mode() === 'login') {
-      this.auth.login({ email: this.email, password: this.password }).subscribe({ next: onSuccess, error: onError });
+      this.auth.login({ email: this.email, password: this.password }, this.adminLogin ? 'ADMIN' : 'PATIENT').subscribe({ next: onSuccess, error: onError });
     } else {
       this.auth
         .register({ email: this.email, password: this.password, name: this.name, phone: this.phone || undefined })

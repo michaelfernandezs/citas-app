@@ -9,6 +9,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'admin/login',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./pages/login/login.component').then((m) => m.LoginComponent),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () =>

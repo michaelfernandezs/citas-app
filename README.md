@@ -35,7 +35,7 @@ Este proyecto ya tiene un repositorio git inicializado localmente. Para subirlo:
 1. En Railway, "New Project" → "Deploy from GitHub repo" → selecciona este repo.
 2. En la configuración del servicio, busca **"Root Directory"** (o "Source") y ponlo en `backend`.
 3. Agrega el plugin de **PostgreSQL** al proyecto — Railway inyecta `DATABASE_URL` automáticamente al servicio.
-4. Agrega las variables de entorno del servicio: `JWT_SECRET`, `CORS_ORIGIN` (la URL de tu frontend cuando la tengas), `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
+4. Agrega `JWT_SECRET`, `CORS_ORIGIN` (la URL del frontend) y credenciales administrativas propias en `ADMIN_EMAIL` y `ADMIN_PASSWORD`. No uses credenciales de ejemplo.
 5. Railway detecta Node, corre `npm install` (que genera Prisma Client vía `postinstall`), luego build y `npm run start:prod` (aplica migraciones antes de arrancar).
 6. Copia la URL pública que te da Railway (algo como `https://tu-backend.up.railway.app`) — la necesitas para el frontend.
 7. Corre el seed una sola vez desde la terminal de Railway (pestaña del servicio):

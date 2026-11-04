@@ -68,13 +68,17 @@ Configurar el hosting para redirigir rutas Angular a `index.html`, incluido
 
 ## 4. Administrador y horarios
 
-Registrar y confirmar primero la cuenta del administrador. Después, en SQL Editor:
+Crear la cuenta administrativa con un correo controlado por el consultorio desde
+**Authentication → Users → Add user** y definir una contraseña propia. Confirma
+el correo o crea el usuario como confirmado. Después, en SQL Editor:
 
 ```sql
 update citas.profiles set role = 'ADMIN' where email = 'TU-CORREO';
 ```
 
-Cerrar sesión y entrar de nuevo. Crear horarios desde la pantalla de administración.
+Cerrar sesión y entrar desde `/admin/login`. El registro público de `/login` siempre
+crea pacientes; el rol del administrador se asigna solo desde el SQL Editor.
+Crear horarios desde la pantalla de administración.
 La configuración inicial no incluye horarios ni citas de ejemplo.
 
 La zona inicial es **UTC**, para conservar la interpretación usual del backend

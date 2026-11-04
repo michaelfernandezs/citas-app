@@ -58,7 +58,7 @@ export class AuthService {
     return this.buildToken(user.id, user.email, user.role);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, expectedRole: 'PATIENT' | 'ADMIN' = 'PATIENT') {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
@@ -67,6 +67,12 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
       throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    if (user.role !== expectedRole) {
+      throw new UnauthorizedException(expectedRole === 'ADMIN'
+        ? 'Esta cuenta no tiene acceso de administrador. Usa el acceso de usuario.'
+        : 'Esta es una cuenta de administrador. Usa el acceso de administrador.');
     }
 
     return this.buildToken(user.id, user.email, user.role);

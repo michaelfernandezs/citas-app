@@ -45,6 +45,33 @@
   color: var(--muted);
 }
 
+.access-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin: 0 0 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.access-switch a {
+  padding: 9px 8px;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--muted);
+  text-align: center;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.access-switch a.active {
+  color: var(--ink);
+  background: var(--paper-raised);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
+  font-weight: 600;
+}
+
 h1 {
   font-size: 22px;
   margin-bottom: 6px;
@@ -112,6 +139,8 @@ input {
   font-size: 13px;
   padding: 0;
 }
+
+.mode-link { display: block; margin: 18px auto 0; }
 
 .error {
   color: var(--rust);

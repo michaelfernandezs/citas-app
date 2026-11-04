@@ -19,7 +19,7 @@ NestJS + Prisma + PostgreSQL + JWT.
    ```
    npm run prisma:seed
    ```
-   Esto crea un admin con el email/password definidos en `.env` (o los valores por defecto si no los pusiste).
+   Define `ADMIN_EMAIL` y `ADMIN_PASSWORD` en `.env` antes de ejecutar el seed. No hay credenciales administrativas por defecto.
 6. Levanta el servidor:
    ```
    npm run start:dev

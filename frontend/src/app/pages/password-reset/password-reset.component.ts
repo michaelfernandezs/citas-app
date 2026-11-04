@@ -11,6 +11,7 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class PasswordResetComponent {
   token: string;
+  adminLogin: boolean;
   email = '';
   password = '';
   confirmation = '';
@@ -20,6 +21,7 @@ export class PasswordResetComponent {
   done = signal(false);
   constructor(private auth: AuthService, route: ActivatedRoute) {
     this.token = route.snapshot.queryParamMap.get('token_hash') ?? route.snapshot.queryParamMap.get('token') ?? '';
+    this.adminLogin = route.snapshot.queryParamMap.get('tipo') === 'admin';
   }
   submit() {
     if (this.loading() || this.done()) return;
@@ -29,7 +31,7 @@ export class PasswordResetComponent {
       return;
     }
     this.loading.set(true);
-    const request = this.token ? this.auth.resetPassword(this.token, this.password) : this.auth.forgotPassword(this.email);
+    const request = this.token ? this.auth.resetPassword(this.token, this.password) : this.auth.forgotPassword(this.email, this.adminLogin);
     request.subscribe({
       next: (result) => { this.loading.set(false); this.message.set(result.message); this.done.set(true); this.password = ''; this.confirmation = ''; },
       error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? 'No se pudo completar la solicitud. Intenta de nuevo.'); },

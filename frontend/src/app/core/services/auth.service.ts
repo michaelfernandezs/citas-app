@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, defer, tap } from 'rxjs';
+import { Observable, defer, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthResponse, User, UserProfile } from '../models/models';
 
@@ -71,21 +71,36 @@ export class AuthService {
       .pipe(tap((res) => this.persistSession(res)));
   }
 
-  login(payload: { email: string; password: string }): Observable<AuthResponse> {
+  login(payload: { email: string; password: string }, expectedRole: 'PATIENT' | 'ADMIN' = 'PATIENT'): Observable<AuthResponse> {
     if (this.supabase.enabled) return this.supabaseRequest(async () => {
       const { data, error } = await this.supabase.client.auth.signInWithPassword(payload);
       if (error) throw error;
-      return this.supabaseProfile(data.session.access_token);
+      const session = await this.supabaseProfile(data.session.access_token);
+      if (session.user.role !== expectedRole) {
+        await this.supabase.client.auth.signOut();
+        throw new Error(expectedRole === 'ADMIN'
+          ? 'Esta cuenta no tiene acceso de administrador. Usa el acceso de usuario.'
+          : 'Esta es una cuenta de administrador. Usa el acceso de administrador.');
+      }
+      return session;
     });
     return this.http
-      .post<AuthResponse>(`${environment.apiUrl}/auth/login`, payload)
+      .post<AuthResponse>(`${environment.apiUrl}/auth/${expectedRole === 'ADMIN' ? 'admin/login' : 'login'}`, payload)
+      .pipe(map((res) => {
+        if (res.user.role !== expectedRole) {
+          throw new Error(expectedRole === 'ADMIN'
+            ? 'Esta cuenta no tiene acceso de administrador. Usa el acceso de usuario.'
+            : 'Esta es una cuenta de administrador. Usa el acceso de administrador.');
+        }
+        return res;
+      }))
       .pipe(tap((res) => this.persistSession(res)));
   }
 
-  forgotPassword(email: string) {
+  forgotPassword(email: string, admin = false) {
     if (this.supabase.enabled) return this.supabaseRequest(async () => {
       const { error } = await this.supabase.client.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/recuperar-contrasena`,
+        redirectTo: `${window.location.origin}/recuperar-contrasena${admin ? '?tipo=admin' : ''}`,
       });
       if (error) throw error;
       return { message: 'Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña.' };

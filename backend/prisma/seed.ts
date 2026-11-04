@@ -4,8 +4,11 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL || 'admin@clinica.com';
-  const password = process.env.ADMIN_PASSWORD || 'CambiaEstaPassword123';
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!email || !password) {
+    throw new Error('Define ADMIN_EMAIL y ADMIN_PASSWORD en backend/.env para crear el administrador.');
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -18,8 +21,7 @@ async function main() {
     data: { email, passwordHash, name: 'Administrador', role: 'ADMIN' },
   });
 
-  console.log(`Admin creado: ${email} / ${password}`);
-  console.log('IMPORTANTE: cambia esta contraseña después del primer login.');
+  console.log(`Admin creado para ${email}. La contraseña no se muestra por seguridad.`);
 }
 
 main()

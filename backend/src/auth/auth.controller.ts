@@ -25,7 +25,12 @@ export class AuthController {
 
   @Post('login')
   login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+    return this.authService.login(dto, 'PATIENT');
+  }
+
+  @Post('admin/login')
+  adminLogin(@Body() dto: LoginDto) {
+    return this.authService.login(dto, 'ADMIN');
   }
 
   @UseGuards(JwtAuthGuard)
