@@ -162,6 +162,18 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     return this.myAppointments().some((a) => a.status === 'SCHEDULED');
   }
 
+  offerEyebrow(): string {
+    const expiresAt = this.waitlistStatus().offer?.expiresAt;
+    if (!expiresAt) return 'Oferta de la fila · responde antes de que expire';
+    return `Oferta de la fila · responde antes de las ${this.hourLabel(expiresAt)}`;
+  }
+
+  offerMeta(): string {
+    const offer = this.waitlistStatus().offer;
+    if (!offer) return '';
+    return `${this.dayLabel(offer.startsAt)} · vence ${this.dayLabel(offer.expiresAt)}`;
+  }
+
   logout() {
     this.auth.logout();
   }

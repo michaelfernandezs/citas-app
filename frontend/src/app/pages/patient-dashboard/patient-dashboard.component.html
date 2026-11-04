@@ -10,23 +10,32 @@
     </div>
   </header>
 
-  @if (success()) { <p role="status">{{ success() }}</p> }
+  <div class="intro">
+    <h1 class="page-title">Tu agenda</h1>
+    <p class="page-lead">
+      Elige un horario libre o pide aviso si el que quieres ya está ocupado.
+    </p>
+  </div>
+
+  @if (success()) {
+    <p class="success" role="status">{{ success() }}</p>
+  }
 
   @if (actionError()) {
     <p class="error">{{ actionError() }}</p>
   }
 
   @if (loading()) {
-    <p class="loading">Cargando…</p>
+    <p class="loading">Cargando tu agenda…</p>
   } @else {
     @if (waitlistStatus().inQueue && waitlistStatus().status === 'OFFERED') {
       <section class="section">
         <h2 class="section-title">Se liberó la cita que esperabas</h2>
         <app-ticket
           variant="rust"
-          eyebrow="Oferta de la fila · responde antes de que expire"
+          [eyebrow]="offerEyebrow()"
           [value]="waitlistStatus().offer ? hourLabel(waitlistStatus().offer!.startsAt) : ''"
-          [meta]="waitlistStatus().offer ? dayLabel(waitlistStatus().offer!.startsAt) : ''"
+          [meta]="offerMeta()"
         >
           <button class="primary-btn" (click)="respondOffer(waitlistStatus().entry!.id, true)">Aceptar</button>
           <button class="ghost-btn" (click)="respondOffer(waitlistStatus().entry!.id, false)">Rechazar</button>
@@ -50,8 +59,11 @@
 
     <section class="section">
       <h2 class="section-title">Citas confirmadas</h2>
-      @if (myAppointments().length === 0 || !hasScheduled()) {
-        <p class="empty">No tienes citas agendadas todavía.</p>
+      @if (!hasScheduled()) {
+        <div class="empty-state" role="status">
+          <p class="empty-state__title">Aún no tienes una cita</p>
+          <p class="empty-state__hint">Abre el calendario de abajo y elige un horario, o únete a la fila si el que quieres ya está tomado.</p>
+        </div>
       }
       <div class="ticket-grid">
         @for (a of myAppointments(); track a.id) {
@@ -68,20 +80,31 @@
     <section class="section">
       <h2 class="section-title">Espacios disponibles</h2>
       @if (reschedulingId()) {
-        <p>Elige un nuevo horario. Tu cita actual se conserva hasta confirmar el cambio.</p>
+        <p class="hint">Elige un nuevo horario. Tu cita actual se conserva hasta confirmar el cambio.</p>
         <button class="ghost-btn" [disabled]="saving()" (click)="stopReschedule()">Conservar mi cita</button>
         @if (selectedSlot()) {
-          <p>Nuevo horario: {{ dayLabel(selectedSlot()!) }}, {{ hourLabel(selectedSlot()!) }}</p>
+          <p class="hint">Nuevo horario: {{ dayLabel(selectedSlot()!) }}, {{ hourLabel(selectedSlot()!) }}</p>
           <button class="primary-btn" [disabled]="saving()" (click)="confirmReschedule()">{{ saving() ? 'Guardando…' : 'Confirmar cambio' }}</button>
         }
         @if (!saving()) {
           <app-week-calendar [slots]="openSlots()" (book)="chooseSlot($event)"></app-week-calendar>
-          @if (openSlots().length === 0) { <p class="empty">No hay espacios disponibles en los próximos 14 días.</p> }
+          @if (openSlots().length === 0) {
+            <div class="empty-state" role="status">
+              <p class="empty-state__title">No hay horarios libres</p>
+              <p class="empty-state__hint">No hay espacios en los próximos 14 días. Conserva tu cita o revisa más tarde.</p>
+            </div>
+          }
         }
       } @else if (hasScheduled()) {
-        <p class="empty">Puedes cambiar de horario con el botón Reprogramar de tu cita.</p>
+        <div class="empty-state" role="status">
+          <p class="empty-state__title">Ya tienes una cita confirmada</p>
+          <p class="empty-state__hint">Usa Reprogramar en tu cita de arriba si quieres cambiar de horario. Solo se permite una cita a la vez.</p>
+        </div>
       } @else if (openSlots().length === 0) {
-        <p class="empty">No hay espacios abiertos por ahora.</p>
+        <div class="empty-state" role="status">
+          <p class="empty-state__title">No hay espacios abiertos</p>
+          <p class="empty-state__hint">Revisa más tarde o pide aviso en una cita ocupada si se cancela.</p>
+        </div>
       } @else {
         <app-week-calendar [slots]="openSlots()" (book)="book($event)"></app-week-calendar>
       }
@@ -89,16 +112,17 @@
 
     <section class="section">
       <h2 class="section-title">Citas ocupadas</h2>
-      <p class="empty" style="margin-bottom: 12px;">
-        Si el horario que quieres ya está tomado, pide que te avisen si se cancela.
-      </p>
+      <p class="hint">Si el horario que quieres ya está tomado, pide que te avisen si se cancela.</p>
 
       @if (waitlistStatus().inQueue) {
-        <p class="empty">Ya estás esperando una cita — sal de la fila si quieres cambiar a otra.</p>
+        <p class="hint">Ya estás esperando una cita — sal de la fila si quieres cambiar a otra.</p>
       }
 
       @if (bookedSlots().length === 0) {
-        <p class="empty">No hay citas ocupadas en los próximos días.</p>
+        <div class="empty-state" role="status">
+          <p class="empty-state__title">Nadie ha reservado todavía</p>
+          <p class="empty-state__hint">Cuando haya citas ocupadas, podrás unirte a la fila para que te avisen si se liberan.</p>
+        </div>
       } @else {
         <div class="ticket-grid">
           @for (slot of bookedSlots(); track slot.id) {

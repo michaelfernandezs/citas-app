@@ -40,6 +40,23 @@ header {
   color: var(--muted);
 }
 
+.intro {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.page-lead {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 42ch;
+}
+
 .section {
   margin-bottom: 32px;
 }
@@ -57,10 +74,39 @@ header {
   gap: 12px;
 }
 
-.empty {
+.empty,
+.hint {
   color: var(--muted);
   font-size: 14px;
   margin-bottom: 12px;
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+.empty-state__title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.empty-state__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 48ch;
+}
+
+.success {
+  color: var(--pine-dark);
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 
 .loading {
